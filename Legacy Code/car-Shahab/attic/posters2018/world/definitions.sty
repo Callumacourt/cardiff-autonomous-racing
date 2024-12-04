@@ -1,0 +1,257 @@
+\usepackage[tbtags]{amsmath}
+\usepackage{amssymb}
+%\usepackage{cleveref}
+\newcommand{\taku}[1]{\textcolor{black}{#1}}
+
+\newcommand{\mbVm}{\mathbf{V}_{i-1}}
+\newcommand{\mbVp}{\mathbf{V}_{i+1}}
+\newcommand{\mblambda}{\mathbf{\lambda}}
+% macros
+\newcommand{\figref}[1]{Fig.~\ref{fig:#1}}
+\newcommand{\tabref}[1]{Table~\ref{tab:#1}}
+\renewcommand{\eqref}[1]{Eq.~(\ref{eq:#1})} % also defined in amsmath.sty
+\newcommand{\chapref}[1]{Chapter~\ref{chap:#1}}
+\newcommand{\secref}[1]{\S~\ref{sec:#1}}
+
+\newcommand{\mypara}[1]{\paragraph*{{\bf #1}}}
+%\newcommand{\mypara}[1]{\subsubsection{#1}}
+
+%\newcommand{\etal}{\emph{et al.}}
+\newcommand{\etal}{{et al.}}
+\newcommand{\mbvi}{\mathbf{v}_i}
+\newcommand{\mbVi}{\mathbf{V}_i}
+\newcommand{\mbW}{\mathbf{W}}
+\newcommand{\mbS}{\mathbf{S}}
+\newcommand{\mbI}{\mathbf{I}}
+\newcommand{\mbR}{\mathbf{R}}
+\newcommand{\mbV}{\mathbf{V}}
+\newcommand{\mbv}{\mathbf{v}}
+\newcommand{\mbb}{\mathbf{b}}
+\newcommand{\mbc}{\mathbf{c}}
+\newcommand{\mbq}{\mathbf{q}}
+\newcommand{\mbbc}{\mathbf{b_c}}
+\newcommand{\mbr}{\mathbf{r}}
+\newcommand{\mbO}{\mathbf{0}}
+\newcommand{\mbs}{\mathbf{s}}
+\newcommand{\mbd}{\mathbf{d}}
+\newcommand{\mbl}{\mathbf{l}}
+\newcommand{\mbx}{\mathbf{x}}
+\newcommand{\mbJ}{\mathbf{J}}
+\newcommand{\mbK}{\mathbf{K}}
+\newcommand{\mbB}{\mathbf{B}}
+\newcommand{\mbC}{\mathbf{C}}
+\newcommand{\mbbx}{\mathbf{b}_x}
+\newcommand{\mbby}{\mathbf{b}_y}
+\newcommand{\mbbz}{\mathbf{b}_z}
+\newcommand{\mbp}{\mathbf{p}}
+\newcommand{\mbP}{\mathbf{P}}
+\newcommand{\mbM}{\mathbf{M}}
+\newcommand{\mbMC}{\mathbf{M_C}}
+\newcommand{\mbH}{\mathbf{H}}
+\newcommand{\mbF}{\mathbf{F}}
+\newcommand{\mbE}{\mathbf{E}}
+\newcommand{\mbh}{\mathbf{h}}
+\newcommand{\mbf}{\mathbf{f}}
+\newcommand{\mbw}{\mathbf{w}}
+\newcommand{\T}{\intercal}
+\newcommand{\real}{\mathbb{R}}
+\newcommand{\flux}{\Phi}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathrm{#1}}
+
+%\RequirePackage[backgroundcolor=white,bordercolor=orange]{todonotes}
+\RequirePackage{mathtools}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+
+\def\apriori{\emph{a~priori}}
+\def\aposteriori{\emph{a~posteriori}}
+\def\naive{na\"{\i}ve}
+\def\Naive{Na\"{\i}ve}
+\def\naively{na\"{\i}vely}
+\def\Naively{Na\"{\i}vely}
+
+\newcommand{\mesh}{\ensuremath{\mathfrak{M}}}
+\renewcommand{\vec}[1]{\ensuremath{\boldsymbol{\mathrm{#1}}}}
+\newcommand{\geo}{\ensuremath{\mathfrak{G}}}
+% \newcommand{\mat}[1]{\ensuremath{\mathrm{#1}}}
+\newcommand{\vmat}[1]{\ensuremath{\mathcal{#1}}}
+\newcommand{\field}[1]{\ensuremath{\mathbb{#1}}}
+% \newcommand{\real}{\field{R}}
+\newcommand{\mcol}{\mbox{\textbf{:}}}
+
+
+% ACRONYMS
+\usepackage[printonlyused]{acronym}
+\makeatletter
+\renewcommand*\AC@get[3]{%
+    \ifx#1\relax
+       \PackageWarning{acronym}{Acronym `#3' is not defined}%
+       \textbf{#3!}%
+    \else
+       \expandafter#2#1%
+    \fi}
+\makeatother
+
+\RequirePackage{algorithmic}
+\RequirePackage{algorithm}
+\renewcommand{\algorithmiccomment}[1]{\hfill\textsl{\textcolor{Medium}{#1}}}
+\newcommand{\la}{\leftarrow}
+\newcommand{\one}{\ensuremath{\boldsymbol{1}}}
+\newcommand{\eye}{\ensuremath{\mat{I}}}
+\newcommand{\zero}{\ensuremath{\boldsymbol{0}}}
+%\RequirePackage[usenames,dvipsnames]{xcolor}
+\newcommand{\render}{\ensuremath{\mathfrak{R}}}
+\providecommand{\dotdiv}{\ensuremath{{\vphantom{a}}_{\bullet}/}}
+% \DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\Nopt}{\ensuremath{N_{\mathrm{opt}}}}
+\RequirePackage[sort]{cite}
+	
+\newcommand{\Bthis}{\ensuremath{\vmat{B}_{\mathrm{this}}}}
+\newcommand{\Mthis}{\ensuremath{\vmat{M}_{\mathrm{this}}}}
+\newcommand{\Bref}{\ensuremath{\vmat{B}_{\mathrm{ref}}}}
+\newcommand{\Bsrc}{\ensuremath{\vmat{B}_{\mathrm{src}}}}
+\newcommand{\Mref}{\ensuremath{\vmat{M}_{\mathrm{ref}}}}
+\newcommand{\Msrc}{\ensuremath{\vmat{M}_{\mathrm{src}}}}
+\newcommand{\Bsum}{\ensuremath{\vmat{B}_{\mathrm{sum}}}}
+\newcommand{\Msum}{\ensuremath{\vmat{M}_{\mathrm{sum}}}}
+
+
+
+\renewcommand{\rmdefault}{ptm}
+\renewcommand{\ttdefault}{pcr}
+% Common typographic macros
+\def\etal{\emph{et~al.}}
+\def\ie{\emph{i.e.}}
+\def\eg{\emph{e.g.}}
+\def\apriori{\emph{a~priori}}
+\def\aposteriori{\emph{a~posteriori}}
+\def\naive{na\"{\i}ve}
+\def\Naive{Na\"{\i}ve}
+\def\naively{na\"{\i}vely}
+\def\Naively{Na\"{\i}vely}
+
+
+\newcommand{\norm}[1]{\lVert#1\rVert}
+\renewcommand{\thebibliography}[1]
+{
+  \list
+  {
+    [\arabic{enumi}]}{
+    \setlength{\itemsep}{0mm}
+    \setlength{\parsep}{0mm}
+    \settowidth\labelwidth{[#1]}\leftmargin\labelwidth
+    \advance\leftmargin\labelsep
+    \usecounter{enumi}
+  }
+}
+
+\allsectionsfont
+{
+%\usefont{OT1}{phv}{bc}{n}\selectfont
+\sffamily\bfseries
+}
+
+
+%%% \mysection - replacement for \section
+% with colored section-title and automatic numbering
+%\newcounter{section}
+\setcounter{section}{1}
+\newcommand{\mysection}[1]{
+  \vspace{1cm}
+  \begin{center}
+ %   \shabox{
+  \colorbox{mainCol}{
+      \begin{minipage}[c][50pt][c]{0.9\columnwidth}
+        \vspace{2.5mm}
+        \begin{center}
+      \Large{
+          {\sffamily\bfseries\textcolor{TextCol}{#1}}
+      }
+        \end{center}
+        \vfill
+      \end{minipage}
+    }
+%}
+  \end{center}
+  \par\vspace{0.75cm}
+  \stepcounter{section}
+}
+
+%%% \myplainsection - replacement for \section
+\newcommand{\myplainsection}[1]{
+  \vspace{2cm}
+  {\bf\textcolor{TextCol}{\arabic{section}.~#1}}
+  \par\vspace{0.75cm}
+  \stepcounter{section}
+}
+
+%%% \mysubsection - replacement for \subsection
+\newcommand{\mysubsection}[1]{
+  \vspace{1cm}
+  {\bf\textcolor{TextCol}{#1}}
+  \par\vspace{0.75cm}
+}
+
+%%% \myfig - replacement for \figure
+% necessary, since in multicol-environment \figure won't work
+\newcommand{\myfig}[3][0]{
+\begin{center}
+  \vspace{1cm}
+  \includegraphics[width=#3\hsize,angle=#1]{#2}
+  \nobreak\medskip
+\end{center}}
+
+%%% \mycaption - replacement for \caption
+% necessary, since in multicol-environment \figure and
+% therefore \caption won't work
+%\newcounter{figure}
+\setcounter{figure}{1}
+\newcommand{\mycaption}[1]{
+  \vspace{0.5cm}\par
+  {\renewcommand{\baselinestretch}{1}\small
+   \setbox0=\hbox{\sc Figure \arabic{figure}: \sl #1}
+   \ifdim\wd0>\hsize
+     {\sc Figure \arabic{figure}: \sl #1}
+   \else
+     \centerline{\box0}
+   \fi
+   \par
+   \stepcounter{figure}
+  }
+}
+
+\newcounter{alg}
+\setcounter{alg}{1}
+\newcommand{\myalgcaption}[1]{
+  \vspace{0.5cm}\par
+  {\renewcommand{\baselinestretch}{1}\small
+   \setbox0=\hbox{\sc Algorithm \arabic{alg}: \sl #1}
+   \ifdim\wd0>\hsize
+     {\sc Algorithm \arabic{alg}: \sl #1}
+   \else
+     \centerline{\box0}
+   \fi
+   \par
+   \stepcounter{alg}
+  }
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%%% gets figure environment working under multicol - PLR
+
+\makeatletter
+\newenvironment{tablehere}
+ {\def\@captype{table}}
+ {}
+
+\newenvironment{figurehere}
+ {\def\@captype{figure}}
+ {}
+
+\newenvironment{alghere}
+ {\def\@captype{alg}}
+ {}
+\makeatother

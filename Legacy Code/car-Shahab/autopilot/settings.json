@@ -1,0 +1,73 @@
+{
+    "SettingsVersion": 1.2,
+    "SimMode": "Car",
+    "ViewMode": "",
+    "EngineSound": false,
+    "RecordUIVisible": false,
+    "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+    "Vehicles": {
+        "PhysXCar": {
+            "VehicleType": "PhysXCar",
+            "DefaultVehicleState": "",
+            "AutoCreate": true,
+            "PawnPath": "",
+            "EnableCollisionPassthrogh": true,
+            "EnableCollisions": true,
+            "RC": {
+                "RemoteControlID": -1
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled" : true
+                }
+            },
+            "Cameras": {
+                "0": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 75,
+                            "AutoExposureSpeed": 100,
+                            "AutoExposureBias": 0,
+                            "AutoExposureMaxBrightness": 0.64,
+                            "AutoExposureMinBrightness": 0.03,
+                            "MotionBlurAmount": 0,
+                            "TargetGamma": 1.0,
+                            "ProjectionMode": "",
+                            "OrthoWidth": 5.12
+                        }
+                    ],
+                    "X": -1, "Y": -0.6, "Z": -2,
+                    "Pitch": 0, "Roll": 0, "Yaw": 0
+                },
+                "1": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 75,
+                            "AutoExposureSpeed": 100,
+                            "AutoExposureBias": 0,
+                            "AutoExposureMaxBrightness": 0.64,
+                            "AutoExposureMinBrightness": 0.03,
+                            "MotionBlurAmount": 0,
+                            "TargetGamma": 1.0,
+                            "ProjectionMode": "",
+                            "OrthoWidth": 5.12
+                        }
+                    ],
+                    "X": -1, "Y": 0.6, "Z": -2,
+                    "Pitch": 0, "Roll": 0, "Yaw": 0
+                }
+            }
+        }
+    },
+    "SubWindows": [
+        {"WindowID": 0, "ImageType": 0, "CameraName": "0", "Visible": false},
+        {"WindowID": 1, "ImageType": 0, "CameraName": "1", "Visible": false}
+    ]
+}

@@ -1,0 +1,50 @@
+%path, voronoi field, 4 weights, maximum curvature, sigma O and sigma K
+%penalty functions 
+function res = smooth(path, grd, vf, r)
+    [wp, wo, wk, ws] = deal(1);
+    [tp, to, tk, ts] = deal(0);
+    kmax = 1/r;
+    dmax = 2;
+    persistent c;
+    persistent h;
+    for i = 2:size(path,2)
+        x = path(1, i);
+        y = path(2, i);
+        [x_, y_] = discretize(x, y);
+        o = grd.closestObstacleDistance([x, y]);
+        if i ~= size(path,2)
+            tp = tp+vf(y_, x_);
+            to = to+(o - dmax).^2;
+            tk = tk+(deltaphi(path, i)/abs(deltav(path, i, 1) - kmax));
+            ts = ts+(deltav(path, i+1, 1) - deltav(path, i, 1)).^2;
+        else
+            tp = tp+vf(y_,x_);
+            to = to+(abs(x-o) - dmax).^2;
+        end 
+    end
+    res = tp*wp + to*wo + tk*wk + ts*ws;
+    if any(c == 1) || isempty(c)
+        h = plot(path(1,:),path(2,:), "color", "black");
+        c = 2;
+    else
+        h.XData = path(1,:);
+        h.YData = path(2,:);
+    end
+    drawnow
+end
+
+function [cx, cy] = discretize(x, y)
+    cx = ceil(x);
+    cy = ceil(y);
+end
+
+%j is the choice of x y or theta, 1 2 and 3 respectively
+function res = deltav(path, i, j)
+    path = path(j:j, :);
+    res = path(i) - path(i-1);
+end
+
+function res = deltaphi(path, i)
+    res = abs(atan(deltav(path, i+1, 2)/deltav(path, i+1, 1)) - atan(deltav(path, i, 2)/deltav(path, i, 1)));
+end
+

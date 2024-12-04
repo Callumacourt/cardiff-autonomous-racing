@@ -1,0 +1,87 @@
+load('stopSigns.mat');
+
+bboxes = cell(size(gTruth.LabelData, 1), 1);
+for i = 1:size(gTruth.LabelData, 1)
+    bboxes{i} = [gTruth.LabelData.yellow{i}; gTruth.LabelData.blue{i}; gTruth.LabelData.solid{i}];        
+end
+
+if 0
+pix = [];
+fn = gTruth.DataSource.Source;
+count = 1;
+for j = 1:numel(bboxes)
+    im = im2double(imread(fn{j}));
+    for i = 1:size(bboxes{j}, 1)
+        b = bboxes{j}(i, :);
+        wnd = im(b(2):b(2)+b(4)-1, b(1):b(1)+b(3)-1, :);
+        
+        p = im2pix(wnd);
+        count = count + 1;
+        pix = [pix p];
+    end
+end
+end
+
+fn = gTruth.DataSource.Source;
+
+fprintf('Total examples: %d\n', sum(cellfun(@numel, bboxes) / 4));
+empty = cellfun(@isempty, bboxes);
+bboxes(empty) = [];
+% fn = list_files('../data/amz/every100/0*.png');
+fn = gTruth.DataSource.Source;
+fn_test = fn(empty);
+fn(empty) = [];
+
+
+% Enlarge
+scale = 1;
+min_pad = 6;
+for i = 1:numel(bboxes)
+    b = bboxes{i};
+    ii = imfinfo(fn{i});
+    w = ii.Width; h = ii.Height;
+    if isempty(b), continue; end
+    cx = b(:, 1) + b(:, 3) * 0.5;
+    cy = b(:, 2) + b(:, 4) * 0.5;
+    
+    add_x = max(b(:, 3) * 0.5 * (scale - 1), min_pad);
+    add_y = max(b(:, 4) * 0.5 * (scale - 1), min_pad);
+    b(:, 1) = b(:, 1) - add_x;
+    b(:, 3) = b(:, 3) + 2 * add_x;
+    b(:, 2) = b(:, 2) - add_y;
+    b(:, 4) = b(:, 4) + 2 * add_y;
+    b(:, 1) = max(1, b(:, 1));
+    right = b(:, 1) + b(:, 3);
+    right = min(right, w);  
+    b(:, 3) = right - b(:, 1);
+
+    bot = b(:, 2) + b(:, 4);
+    bot = min(bot, h);
+    b(:, 4) = bot - b(:, 2);
+    bboxes{i} = b;
+end
+
+
+
+
+X = table(fn, bboxes, 'VariableNames', {'imageFilename', 'cone'});
+
+% rcnn = trainRCNNObjectDetector(X, layers, options, 'NegativeOverlapRange', [0 0.2]);
+negativeFolder = 'negative';
+det_fn = 'cone_detector123.xml';
+if 1
+    trainCascadeObjectDetector(det_fn, X, ...
+        negativeFolder, 'ObjectTrainingSize', [32 24] , 'FalseAlarmRate', 0.6, ...
+        'NumCascadeStages', 25, 'FeatureType', 'Haar', 'NegativeSamplesFactor', 2);
+end
+detector = vision.CascadeObjectDetector(det_fn);
+
+im = imread('../data/amz/001451.png');
+tic
+bbox = step(detector, im);
+toc
+
+
+
+detectedImg = insertObjectAnnotation(im, 'rectangle', bbox, 'cone');
+figure(1); imshow(detectedImg);
