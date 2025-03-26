@@ -1,5 +1,6 @@
 import os
 from rrt_star import rrt_star, Node
+from dummy_inputs import generate_dummy_data, save_to_file
 
 
 # ---------------------- TEMPORARY FUNCTION ------------------------------------
@@ -29,7 +30,12 @@ def read_input_file(input_file_path):
                 print("No path found.")
 
     except FileNotFoundError:
-        print(f"Error: The file at {file_path} was not found.")
+        # Generate dummy data and save to file
+        mock_data = generate_dummy_data(num_steps=100, track_width=12, max_distance=300, step_size=5)
+        save_to_file(mock_data, filename=input_file_path)
+
+        # Run the function again to read the newly created file
+        read_input_file(input_file_path)
     except IOError as e:
         print(f"Error opening file: {e}")
 
