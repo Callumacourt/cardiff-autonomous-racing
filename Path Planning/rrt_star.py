@@ -1,7 +1,12 @@
+import matplotlib
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import random
 import math
+
+matplotlib.use('TkAgg')
+
 
 class Node:
     def __init__(self, x, y):

@@ -9,7 +9,6 @@ def read_input_file(input_file_path):
         with open(input_file_path, 'r') as file:
             lines = file.readlines()
             header = lines[0].strip()
-            #TODO: pass the input data to the RRT* algorithm
             data = [line.strip().split('\t') for line in lines[1:]]
 
             # Extract start, goal, and obstacles
