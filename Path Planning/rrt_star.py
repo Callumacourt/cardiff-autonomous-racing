@@ -168,7 +168,7 @@ def plot(path, obstacles, start, goal):
     if path:
         plt.figure()
         plt.xlim(0, 500)
-        plt.ylim(0, 1500)
+        plt.ylim(-50, 50)
         for ox, oy, r in obstacles:
             circle = plt.Circle((ox, oy), r, color='r')
             plt.gca().add_patch(circle)
