@@ -152,21 +152,23 @@ def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=5000, max_step=5.0, 
                 return extract_path(goal_node)
     return None
 
-# Example usage
-start = (13, 70)
-goal = (48, 32)
-obstacles = [(40, 40, 10), (60, 60, 10), (50, 20, 10)]
-path = rrt_star(start, goal, obstacles, 100, 100)
+# New plot result function for visualisations
+def plot(path, obstacles, start, goal):
+    if path:
+        plt.figure()
+        plt.xlim(0, 500)
+        plt.ylim(0, 1500)
+        for ox, oy, r in obstacles:
+            circle = plt.Circle((ox, oy), r, color='r')
+            plt.gca().add_patch(circle)
+        plt.plot([x for x, y in path], [y for x, y in path], '-g')
+        plt.scatter(start[0], start[1], c='b', marker='o')
+        plt.scatter(goal[0], goal[1], c='r', marker='x')
+        plt.show()
 
-# Plot result
-if path:
-    plt.figure()
-    plt.xlim(0, 100)
-    plt.ylim(0, 100)
-    for ox, oy, r in obstacles:
-        circle = plt.Circle((ox, oy), r, color='r')
-        plt.gca().add_patch(circle)
-    plt.plot([x for x, y in path], [y for x, y in path], '-g')
-    plt.scatter(start[0], start[1], c='b', marker='o')
-    plt.scatter(goal[0], goal[1], c='r', marker='x')
-    plt.show()
+# Example usage
+# start = (13, 70)
+# goal = (48, 32)
+# obstacles = [(40, 40, 10), (60, 60, 10), (50, 20, 10)]
+# path = rrt_star(start, goal, obstacles, 100, 100)
+# plot(path)
