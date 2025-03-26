@@ -1,5 +1,12 @@
+# VS Code
+.vscode
+
 # Jetbrains
 .idea
+Path Planning/.idea
+
+# Path Planning Dummy Data
+Path Planning/inputs.txt
 
 # Mac OS
 .DS_Store

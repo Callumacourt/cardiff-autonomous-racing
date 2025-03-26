@@ -33,21 +33,20 @@ def save_to_file(data, filename):
 
         if os.path.exists(filename):
             print("Warning - File already exists. Overwriting")
-            if input("Type yes or enter to continue...") == "yes":
-                os.remove(filename)
+            os.remove(filename)
 
-                num_steps = data.shape[0]
-                with open(filename, 'w') as f:
-                    f.write(
-                        "Index\tClose Left (x,y,z)\tClose Right (x,y,z)\tFar Left (x,y,z)\tFar Right (x,y,z)\n")
-                    for i in range(num_steps):
-                        close_l = ','.join(f"{v:.2f}" for v in data[i][0])
-                        close_r = ','.join(f"{v:.2f}" for v in data[i][1])
-                        far_l = ','.join(f"{v:.2f}" for v in data[i][2])
-                        far_r = ','.join(f"{v:.2f}" for v in data[i][3])
-                        f.write(f"{i}\t{close_l}\t{close_r}\t{far_l}\t{far_r}\n")
+            num_steps = data.shape[0]
+            with open(filename, 'w') as f:
+                f.write(
+                    "Index\tClose Left (x,y,z)\tClose Right (x,y,z)\tFar Left (x,y,z)\tFar Right (x,y,z)\n")
+                for i in range(num_steps):
+                    close_l = ','.join(f"{v:.2f}" for v in data[i][0])
+                    close_r = ','.join(f"{v:.2f}" for v in data[i][1])
+                    far_l = ','.join(f"{v:.2f}" for v in data[i][2])
+                    far_r = ','.join(f"{v:.2f}" for v in data[i][3])
+                    f.write(f"{i}\t{close_l}\t{close_r}\t{far_l}\t{far_r}\n")
 
-                print(f"Data saved to '{filename}'")
+            print(f"Data saved to '{filename}'")
         else:
             print("Writing to File")
 
@@ -66,8 +65,3 @@ def save_to_file(data, filename):
 
     else:
         print("Incorrect File Type Requested")
-
-
-if __name__ == "__main__":
-    mock_data = generate_dummy_data(num_steps=100, track_width=12, max_distance=300, step_size=5)
-    save_to_file(mock_data, filename="inputs.txt")
