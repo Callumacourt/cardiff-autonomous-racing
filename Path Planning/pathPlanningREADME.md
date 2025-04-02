@@ -16,14 +16,10 @@ Here is the structure of the project:
 
 ## Getting started
 
-Libraries that need to be installed:
-- numpy
-- matplotlib
-- pygame
-
-**If you are on university computers, you can install these libraries using pip to avoid the admin username and password.**
-
-**For example: pip install whatever_library_you_need**
+**Installing Dependencies**
+```
+pip install -r requirements.txt
+```
 
 When starting the project, **run dummyInputs.py** to generate a basic 3D-array in the **inputs.txt file**.
 This array represents a racetrack that has a basic curve - this data is formatted:
