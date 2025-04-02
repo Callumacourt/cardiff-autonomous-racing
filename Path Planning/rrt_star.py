@@ -8,6 +8,12 @@ import math
 matplotlib.use('TkAgg')
 
 
+# TODO: Implement Exception Handling
+# TODO: Implement Logging
+# TODO: Implement Path Smoothing to make path less jagged
+# TODO: Implement off-set for obstacles of car size to avoid a crash
+
+
 class Node:
     def __init__(self, x, y):
         self.x = x
@@ -143,7 +149,7 @@ def extract_path(last_node):
     return path[::-1]
 
 
-def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=5000, max_step=5.0, goal_sample_rate=0.1, radius=10.0):
+def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=10000, max_step=1.0, goal_sample_rate=0.99, radius=10.0):
     tree = [Node(start[0], start[1])]
     for _ in range(max_iter):
         rand_node = get_random_node(goal, goal_sample_rate, x_max, y_max)
