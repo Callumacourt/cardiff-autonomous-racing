@@ -22,10 +22,9 @@ class Node:
         self.children = []
         self.cost = 0.0
 
-
+# actual distance between 2 nodes
 def euclidean_distance(node1, node2):
     return math.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2)
-
 
 def get_random_node(goal, goal_sample_rate, x_max, y_max):
     if random.random() < goal_sample_rate:
@@ -41,6 +40,7 @@ def nearest_node(tree, node):
 def steer(from_node, to_node, max_step):
     distance = euclidean_distance(from_node, to_node)
     if distance > max_step:
+        # Calculates the angle theta (in radians) between the line connecting two points (from_node and to_node) and the positive x-axis.
         theta = math.atan2(to_node.y - from_node.y, to_node.x - from_node.x)
         new_node = Node(from_node.x + max_step * math.cos(theta),
                         from_node.y + max_step * math.sin(theta))
@@ -56,6 +56,7 @@ def is_collision_free(node, obstacles):
     return True
 
 
+# Scales the tree if the current path reaches an obstacle (Should always be closest branch)
 def find_neighbours(tree, node, min_radius=5.0, use_adaptive_radius=True):
     n = len(tree)
     dimension = 2
@@ -78,12 +79,14 @@ def find_neighbours(tree, node, min_radius=5.0, use_adaptive_radius=True):
 def choose_parent(new_node, nearby_nodes):
     if not nearby_nodes:
         return None
+    # Compares nodes around the new node to find the one with the lowest cost
     parent = min(nearby_nodes, key=lambda n: n.cost + euclidean_distance(n, new_node))
     new_node.cost = parent.cost + euclidean_distance(parent, new_node)
     new_node.parent = parent
     return new_node
 
 
+# Rewires the nearby nodes to the new node if it is cheaper
 def rewire(new_node, nearby_nodes, obstacles):
     nodes_rewired = 0
     total_cost_improvement = 0
@@ -132,6 +135,7 @@ def rewire(new_node, nearby_nodes, obstacles):
     return nodes_rewired, total_cost_improvement
 
 
+# Updates node costs down the branch of the tree/path
 def update_descendants_cost(node):
     stack = [node]
     while stack:
@@ -141,6 +145,7 @@ def update_descendants_cost(node):
             stack.append(child)
 
 
+# Extracts the path from the start node to the goal node (Sets as final path)
 def extract_path(last_node):
     path = [(last_node.x, last_node.y)]
     while last_node.parent is not None:
@@ -148,7 +153,7 @@ def extract_path(last_node):
         path.append((last_node.x, last_node.y))
     return path[::-1]
 
-
+#Run loop
 def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=10000, max_step=1.0, goal_sample_rate=0.99, radius=10.0):
     tree = [Node(start[0], start[1])]
     for _ in range(max_iter):
