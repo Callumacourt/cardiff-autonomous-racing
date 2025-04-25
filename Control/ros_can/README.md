@@ -6,6 +6,7 @@ use colcon build to build
 if FS-AI-API is empty, go to project root and then use:
 
 git submodule init
+
 git submodule update
 
 ### Dependencies
