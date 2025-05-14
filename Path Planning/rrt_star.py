@@ -4,7 +4,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import random
 import math
+import logging
 
+logging.basicConfig(level=logging.ERROR)
 matplotlib.use('TkAgg')
 
 
@@ -48,15 +50,43 @@ def steer(from_node, to_node, max_step):
         return new_node
     return to_node
 
+"""
+Checks that a node is not within an obstacle radius, as well as if the path between two nodes
+does not intersect an obstacle if the node has a parent
 
-def is_collision_free(node, obstacles):
-    for (ox, oy, radius) in obstacles:
-        if euclidean_distance(node, Node(ox, oy)) <= radius:
-            return False
+PARAM - (step_size) - The distance at which to create temporary nodes between two nodes, to check for obstacle collision
+PARAM -Tolerance - The distance from the obstacle that we accept
+"""
+def is_collision_free(node, obstacles, parent=None, step_size=1, tolerance=1.5):
+    if parent is None:
+        # Check only the node itself
+        for (ox, oy, radius) in obstacles:
+            if euclidean_distance(node, Node(ox, oy)) <= radius + tolerance:
+                return False
+        return True
+
+    distance = euclidean_distance(parent, node)
+    if distance == 0:  # Avoid division by zero
+        return True
+
+    try:
+        steps = max(1, int(distance / step_size))
+        for i in range(steps + 1):
+            x = parent.x + i * (node.x - parent.x) / steps
+            y = parent.y + i * (node.y - parent.y) / steps
+            for (ox, oy, radius) in obstacles:
+                if euclidean_distance(Node(x, y), Node(ox, oy)) <= radius + tolerance:
+                    return False
+    except ZeroDivisionError:
+        logging.error("Division by zero encountered. Values: parent=(%.2f, %.2f), node=(%.2f, %.2f), distance=%.5f, step_size=%.5f",
+                      parent.x, parent.y, node.x, node.y, distance, step_size)
+        return False
+
     return True
 
 
-# Scales the tree if the current path reaches an obstacle (Should always be closest branch)
+
+
 def find_neighbours(tree, node, min_radius=5.0, use_adaptive_radius=True):
     n = len(tree)
     dimension = 2
@@ -88,9 +118,6 @@ def choose_parent(new_node, nearby_nodes):
 
 # Rewires the nearby nodes to the new node if it is cheaper
 def rewire(new_node, nearby_nodes, obstacles):
-    nodes_rewired = 0
-    total_cost_improvement = 0
-
     for neighbor in nearby_nodes:
         # Skip if neighbor is the parent of new_node or is new_node itself
         if neighbor == new_node.parent or neighbor == new_node:
@@ -98,7 +125,7 @@ def rewire(new_node, nearby_nodes, obstacles):
 
         # Check if the path between new_node and neighbor is collision-free
         midpoint = Node((new_node.x + neighbor.x) / 2, (new_node.y + neighbor.y) / 2)
-        if not is_collision_free(midpoint, obstacles):
+        if not is_collision_free(midpoint, obstacles, parent=new_node, tolerance = 2):
             continue
 
         # Calculate potential new cost
@@ -106,9 +133,6 @@ def rewire(new_node, nearby_nodes, obstacles):
 
         # Only rewire if it improves the cost
         if potential_new_cost < neighbor.cost:
-            # Calculate cost improvement
-            cost_improvement = neighbor.cost - potential_new_cost
-
             # Update parent-child relationship
             if neighbor.parent:
                 try:
@@ -161,7 +185,7 @@ def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=10000, max_step=1.0,
         nearest = nearest_node(tree, rand_node)
         new_node = steer(nearest, rand_node, max_step)
 
-        if is_collision_free(new_node, obstacles):
+        if is_collision_free(new_node, obstacles, parent=nearest, tolerance=3):
             nearby_nodes = find_neighbours(tree, new_node, min_radius=radius)
             new_node = choose_parent(new_node, nearby_nodes) or new_node
             tree.append(new_node)
@@ -171,22 +195,46 @@ def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=10000, max_step=1.0,
                 goal_node = Node(goal[0], goal[1])
                 goal_node.parent = new_node
                 goal_node.cost = new_node.cost + euclidean_distance(new_node, goal_node)
-                return extract_path(goal_node)
-    return None
+                return extract_path(goal_node), tree
+    return None, tree
+
 
 # New plot result function for visualisations
-def plot(path, obstacles, start, goal):
+def plot(path, obstacles, start, goal, tree=None, x_max=100, y_max=100):
+    plt.figure(figsize=(10, 8))
+    
+    # Set the plot limits
+    plt.xlim(0, x_max)
+    plt.ylim(0, y_max)
+    
+    # Plot obstacles
+    for ox, oy, radius in obstacles:
+        circle = plt.Circle((ox, oy), radius, color='red', alpha=0.5)
+        plt.gca().add_patch(circle)
+    
+    # Plot the tree if provided
+    if tree:
+        for node in tree:
+            if node.parent:
+                plt.plot([node.x, node.parent.x], [node.y, node.parent.y], 'c-', alpha=0.5, label='Tree' if node == tree[1] else "")
+    
+    # Plot the path if found
     if path:
-        plt.figure()
-        plt.xlim(0, 500)
-        plt.ylim(-50, 50)
-        for ox, oy, r in obstacles:
-            circle = plt.Circle((ox, oy), r, color='r')
-            plt.gca().add_patch(circle)
-        plt.plot([x for x, y in path], [y for x, y in path], '-g')
-        plt.scatter(start[0], start[1], c='b', marker='o')
-        plt.scatter(goal[0], goal[1], c='r', marker='x')
-        plt.show()
+        plt.plot([x for x, y in path], [y for x, y in path], '-g', linewidth=2, label='Path')
+        plt.scatter([x for x, y in path], [y for x, y in path], c='green', marker='o', s=20, label='Path Nodes')
+    else:
+        plt.title("No path found")
+    
+    # Plot start and goal
+    plt.scatter(start[0], start[1], c='blue', marker='o', s=100, label='Start')
+    plt.scatter(goal[0], goal[1], c='purple', marker='*', s=150, label='Goal')
+    
+    # Add grid, legend, and show the plot
+    plt.grid(True)
+    plt.legend()
+    plt.title("RRT* Path Planning")
+    plt.axis('equal')
+    plt.show()
 
 # Example usage
 # start = (13, 70)
