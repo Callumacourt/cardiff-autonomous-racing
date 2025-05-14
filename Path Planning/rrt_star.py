@@ -13,7 +13,6 @@ matplotlib.use('TkAgg')
 # TODO: Implement Exception Handling
 # TODO: Implement Logging
 # TODO: Implement Path Smoothing to make path less jagged
-# TODO: Implement off-set for obstacles of car size to avoid a crash
 
 
 class Node:
@@ -118,6 +117,10 @@ def choose_parent(new_node, nearby_nodes):
 
 # Rewires the nearby nodes to the new node if it is cheaper
 def rewire(new_node, nearby_nodes, obstacles):
+    total_cost_improvement = 0
+    nodes_rewired = 0
+    cost_improvement = 0
+
     for neighbor in nearby_nodes:
         # Skip if neighbor is the parent of new_node or is new_node itself
         if neighbor == new_node.parent or neighbor == new_node:
