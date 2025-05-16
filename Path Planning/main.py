@@ -27,17 +27,15 @@ def read_input_file(input_file_path):
                 for i in range(1, 5):
                     x, y, _ = map(float, line[i].split(','))
                     obstacles.append((x, y, 1.0))
+                    
+            # Call RRT* algorithmn
+            path, tree = rrt_star(start, goal, obstacles, 500, 20)
 
-            # Call RRT* algorithm
-            path, tree = rrt_star(start, goal, obstacles, 500, 500)
-
-            # Plot the result
-            plot(path, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
-
+            #Plot the results
             if path:
-                print("Path found:", path)
+                plot(path, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
             else:
-                print("No path found.")
+                plot(None, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
 
     except FileNotFoundError:
         print("File not found. Generating dummy data...")

@@ -32,7 +32,7 @@ def get_random_node(goal, goal_sample_rate, x_max, y_max):
     if random.random() < goal_sample_rate:
         return Node(goal[0], goal[1])
     else:
-        return Node(random.uniform(0, x_max), random.uniform(0, y_max))
+        return Node(random.uniform(0, x_max), random.uniform(-20, y_max))
 
 
 def nearest_node(tree, node):
@@ -57,7 +57,7 @@ does not intersect an obstacle if the node has a parent
 PARAM - (step_size) - The distance at which to create temporary nodes between two nodes, to check for obstacle collision
 PARAM -Tolerance - The distance from the obstacle that we accept
 """
-def is_collision_free(node, obstacles, parent=None, step_size=1, tolerance=1.5):
+def is_collision_free(node, obstacles, parent=None, step_size=1, tolerance= 2):
     if parent is None:
         # Check only the node itself
         for (ox, oy, radius) in obstacles:
@@ -149,15 +149,6 @@ def rewire(new_node, nearby_nodes, obstacles):
             # Propagate cost updates to descendants
             update_descendants_cost(neighbor)
 
-            # Update stats (just to show rewiring is working)
-            nodes_rewired += 1
-            total_cost_improvement += cost_improvement
-
-    if total_cost_improvement > 0:
-        print(f"Cost improvement: {total_cost_improvement:.4f}")
-
-    return nodes_rewired, total_cost_improvement
-
 
 # Updates node costs down the branch of the tree/path
 def update_descendants_cost(node):
@@ -178,14 +169,14 @@ def extract_path(last_node):
     return path[::-1]
 
 #Run loop
-def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=10000, max_step=1.0, goal_sample_rate=0.99, radius=10.0):
+def rrt_star(start, goal, obstacles, x_max, y_max, max_iter=500, max_step=5, goal_sample_rate=0.05, radius=10.0):
     tree = [Node(start[0], start[1])]
     for _ in range(max_iter):
         rand_node = get_random_node(goal, goal_sample_rate, x_max, y_max)
         nearest = nearest_node(tree, rand_node)
         new_node = steer(nearest, rand_node, max_step)
 
-        if is_collision_free(new_node, obstacles, parent=nearest, tolerance=3):
+        if is_collision_free(new_node, obstacles, parent=nearest, tolerance=2):
             nearby_nodes = find_neighbours(tree, new_node, min_radius=radius)
             new_node = choose_parent(new_node, nearby_nodes) or new_node
             tree.append(new_node)
