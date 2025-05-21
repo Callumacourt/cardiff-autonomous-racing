@@ -1,7 +1,6 @@
 import os
 from dummy_inputs import generate_dummy_data, save_to_file
-from rrt_star import rrt_star, Node , plot
-
+from rrt_star import rrt_star, Node, plot, PathStatus
 
 # ---------------------- TEMPORARY FUNCTION ------------------------------------
 # A function which reads the content of the input file we are using as temporary input information.
@@ -29,13 +28,25 @@ def read_input_file(input_file_path):
                     obstacles.append((x, y, 1.0))
                     
             # Call RRT* algorithmn
-            path, tree = rrt_star(start, goal, obstacles, 500, 20)
+            result = rrt_star(start, goal, obstacles, 500, 20)
 
-            #Plot the results
-            if path:
+            path = None
+            tree = None
+            print(f"Path planning status: {result.status}")
+
+            if result.status == PathStatus.SUCCESS:
+                path = result.path
+                tree = result.tree
+                print("Path planning succeeded.")
                 plot(path, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
-            else:
-                plot(None, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
+            elif result.status == PathStatus.FAILED:
+                print(f"Path planning failed: {result.error}")
+            elif result.status == PathStatus.PARTIAL:
+                path = result.path
+                tree = result.tree
+                print("Path planning returned a partial result.")
+                plot(path, obstacles, start, goal, tree=tree, x_max=500, y_max=500)
+
 
     except FileNotFoundError:
         print("File not found. Generating dummy data...")
