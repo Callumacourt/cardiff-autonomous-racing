@@ -8,4 +8,5 @@ ros2 launch ros_can ros_can.launch.py
 then in a seperate terminal:
 
 cd ros_control/launch
+
 ros2 launch ros_control.launch.py
