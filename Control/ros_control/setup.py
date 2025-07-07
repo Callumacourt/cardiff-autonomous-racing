@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "command_pub = ros_control.cmd_pub:main",
+            "command_node = ros_control.cmd_node:main",
             "driving_flag_pub = ros_control.driving_flag_pub:main",
             "mission_flag_pub = ros_control.mission_flag_pub:main"
         ],

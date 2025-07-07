@@ -12,15 +12,15 @@ def generate_launch_description():
         executable="mission_flag_pub"
     )
 
-    cmd_pub_node = Node(
+    cmd_node = Node(
         package="ros_control",
-        executable="command_pub"
+        executable="command_node"
     )
 
     return LaunchDescription(
         [
             mf_pub_node,
             df_pub_node,
-            cmd_pub_node
+            cmd_node
         ]
     )

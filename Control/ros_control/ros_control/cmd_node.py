@@ -1,0 +1,121 @@
+# Copyright 2016 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import ackermann_msgs.msg
+import rclpy
+from rclpy.node import Node
+import ackermann_msgs
+
+import std_msgs
+import std_msgs.msg
+
+from eufs_msgs.msg import CanState, WheelSpeedsStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped
+from sensor_msgs.msg import Imu,NavSatFix
+
+from numpy import ndarray
+
+class MinimalPublisher(Node):
+
+    def __init__(self):
+        super().__init__('ros_control')
+        self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
+        self.timer_period = 0.01  # seconds
+        self.timer = self.create_timer(self.timer_period, self.timer_callback)
+        self.i = 0
+
+        #set up subscribers to get data from car
+        self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
+        self.wheel_speeds_sub = self.create_subscription(WheelSpeedsStamped,"ros_can/wheel_speeds",self.wheel_speeds_callback,10)
+        self.twist_sub = self.create_subscription(TwistWithCovarianceStamped,"ros_can/twist",self.twist_callback,10)
+        self.imu_sub = self.create_subscription(Imu,"ros_can/imu",self.imu_callback,10)
+        self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
+
+    #called whenever a msg is recieved
+    def can_state_callback(self, msg:CanState):
+        ami_state = msg.ami_state
+        as_state = msg.as_state
+        pass
+    def wheel_speeds_callback(self,msg:WheelSpeedsStamped):
+        header = msg.header
+        wheels = msg.speeds
+        lb = wheels.lb_speed
+        lf = wheels.lf_speed
+        rb = wheels.rb_speed
+        rf = wheels.rf_speed
+        steering = wheels.steering
+        pass
+    def twist_callback(self,msg:TwistWithCovarianceStamped):
+        header = msg.header
+        twist_with_covariance = msg.twist
+        twist = twist_with_covariance.twist
+        covariance = twist_with_covariance.covariance
+        pass
+    def imu_callback(self,msg:Imu):
+        try:
+            header = msg.header
+            angular_velocity = msg.angular_velocity
+            av_with_covariance = msg.angular_velocity_covariance
+            linear_acceleration = msg.linear_acceleration
+            la_with_covariance = msg.linear_acceleration_covariance
+            orientation = msg.orientation
+            orientation_covariance = msg.orientation_covariance
+        except:
+            print("error in Imu msg")
+    def nav_callback(self,msg:NavSatFix):
+        header = msg.header
+        altitude = msg.altitude
+        lat = msg.latitude
+        long = msg.longitude
+        covariance = msg.position_covariance
+        cov_type = msg.position_covariance_type
+
+        status = msg.status
+        pass
+
+    #called periodically based on self.timer_period
+    def timer_callback(self):
+        msg = ackermann_msgs.msg.AckermannDriveStamped()
+        msg.header = std_msgs.msg.Header()
+        msg.drive = ackermann_msgs.msg.AckermannDrive()
+
+        # THIS IS WHERE COMMANDS ARE SENT TO ROS_CAN
+        #ros_can will then check to make sure the commands are valid, and that the car should be driving
+        # before sending them to the car
+        msg.drive.speed=10.0    
+        msg.drive.acceleration=1.0
+        # msg.drive.steering_angle
+        # msg.drive.steering_angle_velocity
+        # msg.drive.jerk
+        self.publisher_.publish(msg)
+        #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
+        self.i += 1
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_publisher = MinimalPublisher()
+
+    rclpy.spin(minimal_publisher)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    minimal_publisher.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
