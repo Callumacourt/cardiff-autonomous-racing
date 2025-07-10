@@ -93,33 +93,33 @@ class Dynamics_Model():
         x_positions.append(self.state.xpos)
         y_positions.append(self.state.ypos)
 
+if __name__ == "__main__":
+    # testing purposes
 
-# testing purposes
+    x_positions = []
+    y_positions = []
 
-x_positions = []
-y_positions = []
+    model = Dynamics_Model(timestep=0.01)
+    #generate some inputs
+    inputs = [Vehicle_Input(3,0) for x in range(500)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(3,0) for x in range(100)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(0,0) for x in range(200)]
 
-model = Dynamics_Model(timestep=0.01)
-#generate some inputs
-inputs = [Vehicle_Input(3,0) for x in range(500)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(3,0) for x in range(100)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(0,0) for x in range(200)]
+    startTime = time.time_ns()
+    for i in range(len(inputs)-1):
+        #print the state for debug purposes
+        #print(model.state)
+        model.calculate_next_state(inputs[i])
+        #print(model.timestep_count)
+        #print()
 
-startTime = time.time_ns()
-for i in range(len(inputs)-1):
-    #print the state for debug purposes
-    #print(model.state)
-    model.calculate_next_state(inputs[i])
-    #print(model.timestep_count)
-    #print()
+    endTime = time.time_ns()
+    print(model.state)
 
-endTime = time.time_ns()
-print(model.state)
+    print("Time taken: "+str(endTime-startTime)+"ns")
 
-print("Time taken: "+str(endTime-startTime)+"ns")
-
-plt.plot(x_positions,y_positions)
-plt.xlim(-100,100)
-plt.ylim(-100,100)
-plt.show()
+    plt.plot(x_positions,y_positions)
+    plt.xlim(-100,100)
+    plt.ylim(-100,100)
+    plt.show()
 
 
 #TODO:
