@@ -87,15 +87,15 @@ class MinimalPublisher(Node):
         # acceleration and steering angle
         if self.as_state == 3:# car is in AS_DRIVING
             # msg.drive.speed=10.0    
-            msg.drive.acceleration=1.0
-            # msg.drive.steering_angle
+            msg.drive.acceleration = 1.0 # make sure these are floats
+            msg.drive.steering_angle = 2.0
             # msg.drive.steering_angle_velocity
             # msg.drive.jerk
             self.publisher_.publish(msg)
             #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
         elif self.as_state == 2: # car is in AS_READY
-            msg.drive.acceleration = 0
-            msg.drive.steering_angle = 0
+            msg.drive.acceleration = 0.0
+            msg.drive.steering_angle = 0.0
             #msg.drive.steering_angle_velocity = 0
         
         self.i += 1
