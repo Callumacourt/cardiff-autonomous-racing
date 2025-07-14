@@ -83,8 +83,10 @@ class MinimalPublisher(Node):
         # THIS IS WHERE COMMANDS ARE SENT TO ROS_CAN
         #ros_can will then check to make sure the commands are valid, and that the car should be driving
         # before sending them to the car
+        # the ackermanndrive msg has more parameters than the car uses, we currently only need to worry about 
+        # acceleration and steering angle
         if self.as_state == 3:# car is in AS_DRIVING
-            msg.drive.speed=10.0    
+            # msg.drive.speed=10.0    
             msg.drive.acceleration=1.0
             # msg.drive.steering_angle
             # msg.drive.steering_angle_velocity
@@ -92,11 +94,9 @@ class MinimalPublisher(Node):
             self.publisher_.publish(msg)
             #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
         elif self.as_state == 2: # car is in AS_READY
-            msg.drive.speed = 0 
             msg.drive.acceleration = 0
-            msg.drive.jerk = 0
             msg.drive.steering_angle = 0
-            msg.drive.steering_angle_velocity = 0
+            #msg.drive.steering_angle_velocity = 0
         
         self.i += 1
 
