@@ -12,6 +12,8 @@ from sensor_msgs.msg import Imu,NavSatFix
 
 from numpy import ndarray
 
+from ...MPC.main import Model_Predictive_Contol
+
 class MinimalPublisher(Node):
 
     def __init__(self):
@@ -28,10 +30,12 @@ class MinimalPublisher(Node):
         self.imu_sub = self.create_subscription(Imu,"ros_can/imu",self.imu_callback,10)
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
+        self.mpc_unit = Model_Predictive_Contol(self.timer_period)
+
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
-        ami_state = msg.ami_state
-        as_state = msg.as_state
+        self.ami_state = msg.ami_state
+        self.as_state = msg.as_state
         pass
     def wheel_speeds_callback(self,msg:WheelSpeedsStamped):
         header = msg.header
@@ -79,13 +83,21 @@ class MinimalPublisher(Node):
         # THIS IS WHERE COMMANDS ARE SENT TO ROS_CAN
         #ros_can will then check to make sure the commands are valid, and that the car should be driving
         # before sending them to the car
-        msg.drive.speed=10.0    
-        msg.drive.acceleration=1.0
-        # msg.drive.steering_angle
-        # msg.drive.steering_angle_velocity
-        # msg.drive.jerk
-        self.publisher_.publish(msg)
-        #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
+        if self.as_state == 3:# car is in AS_DRIVING
+            msg.drive.speed=10.0    
+            msg.drive.acceleration=1.0
+            # msg.drive.steering_angle
+            # msg.drive.steering_angle_velocity
+            # msg.drive.jerk
+            self.publisher_.publish(msg)
+            #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
+        elif self.as_state == 2: # car is in AS_READY
+            msg.drive.speed = 0 
+            msg.drive.acceleration = 0
+            msg.drive.jerk = 0
+            msg.drive.steering_angle = 0
+            msg.drive.steering_angle_velocity = 0
+        
         self.i += 1
 
 
