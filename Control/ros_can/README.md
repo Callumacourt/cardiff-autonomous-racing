@@ -3,6 +3,7 @@
 This is a ROS 2 node used to communicate with the ADS-DV over the CAN bus.
 
 use colcon build --packages-select ros_can to build
+
 if FS-AI-API is empty, go to project root and then use:
 
 git submodule init
