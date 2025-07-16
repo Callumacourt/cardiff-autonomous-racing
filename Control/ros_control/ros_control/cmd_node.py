@@ -31,6 +31,9 @@ class MinimalPublisher(Node):
         self.imu_sub = self.create_subscription(Imu,"ros_can/imu",self.imu_callback,10)
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
+        #set up subscriber(s) to get data via path planning
+        
+
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
 
     #called whenever a msg is recieved
@@ -47,12 +50,12 @@ class MinimalPublisher(Node):
         rf = wheels.rf_speed
         steering = wheels.steering
         self.mpc_unit.dynamics_model.set_state(Vehicle_State(
-            xpos=0.0, # ????
+            xpos=0.0, # MPC will always assume
             ypos=0.0, # ????
             yaw_angle=0.0, 
             directional_velocity=(lb+lf+rb+rf)/4.0, # average speed
-            perpendicualar_velocity=0.0, # ????
-            yaw_rate=0.0
+            perpendicualar_velocity=0.0, # how much the car is sliding
+            yaw_rate= steering # DEFINITLY NOT CORRECT
         ))
 
     def twist_callback(self,msg:TwistWithCovarianceStamped):
