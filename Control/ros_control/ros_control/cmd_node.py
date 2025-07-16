@@ -13,7 +13,7 @@ from sensor_msgs.msg import Imu,NavSatFix
 from numpy import ndarray
 
 from ...MPC.main import Model_Predictive_Contol
-FROM ...model.vehical_model import Vehicle_Input, Vehicle_State
+from ...model.vehical_model import Vehicle_Input, Vehicle_State
 
 class MinimalPublisher(Node):
 
