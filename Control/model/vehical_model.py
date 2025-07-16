@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import time
+import numpy as np
 
 
 class Vehicle_State():
@@ -22,9 +23,10 @@ class Vehicle_State():
 
 
 class Vehicle_Input():
-    def __init__(self, acceleration=0,steering_angle=0):
-        self.acceleration = acceleration
-        self.steering_angle = steering_angle
+    def __init__(self, acceleration=0, deceleration=0, steering_angle=0):
+        self.deceleration = deceleration # brake
+        self.acceleration = acceleration # pedal
+        self.steering_angle = steering_angle # steer
 
 
 class Dynamics_Model():
@@ -35,7 +37,7 @@ class Dynamics_Model():
         lf: distance from centre of gravity to front axel (m)
         lr: distance from centre of gravity to rear axel (m)
         yaw_inertia: lateral inertia of the vehicle (kgm^2)"""
-    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
+    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500.0, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
         self.matPlotLib = matPlotLib
         self.state = state
         #self.input = input
@@ -101,33 +103,57 @@ class Dynamics_Model():
             y_positions.append(self.state.ypos)
 
 if __name__ == "__main__":
-    # testing purposes
-
+    # For storing trajectory and velocities
     x_positions = []
     y_positions = []
+    speeds = []
+    directions = []
 
-    model = Dynamics_Model(timestep=0.01, matPlotLib=True)
-    #generate some inputs
-    inputs = [Vehicle_Input(3,0) for x in range(500)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(3,0) for x in range(100)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(0,0) for x in range(200)]
+    model = Dynamics_Model(timestep=0.01, matPlotLib=False)
+
+    inputs = [Vehicle_Input(3,0) for x in range(500)] + \
+             [Vehicle_Input(0,0.3) for x in range(50)] + \
+             [Vehicle_Input(3,0) for x in range(100)] + \
+             [Vehicle_Input(0,0.3) for x in range(50)] + \
+             [Vehicle_Input(0,0) for x in range(200)]
 
     startTime = time.time_ns()
     for i in range(len(inputs)-1):
-        #print the state for debug purposes
-        #print(model.state)
         model.calculate_next_state(inputs[i])
-        #print(model.timestep_count)
-        #print()
-
+        state = model.get_state()
+        x_positions.append(state.xpos)
+        y_positions.append(state.ypos)
+        vx = state.directional_velocity * math.cos(state.yaw_angle) - state.perpendicualar_velocity * math.sin(state.yaw_angle)
+        vy = state.perpendicualar_velocity * math.cos(state.yaw_angle) + state.directional_velocity * math.sin(state.yaw_angle)
+        speeds.append(math.sqrt(vx**2 + vy**2))
+        directions.append((vx, vy))
     endTime = time.time_ns()
-    print(model.state)
 
+    print(model.state)
     print("Time taken: "+str(endTime-startTime)+"ns")
 
-    plt.plot(x_positions,y_positions)
-    plt.xlim(-100,100)
-    plt.ylim(-100,100)
+    # Convert lists to numpy arrays
+    x = np.array(x_positions)
+    y = np.array(y_positions)
+    speed = np.array(speeds)
+    directions = np.array(directions)
+
+    plt.figure(figsize=(10, 10))
+    sc = plt.scatter(x, y, c=speed, cmap='viridis', s=10)
+    plt.colorbar(sc, label="Speed (m/s)")
+
+    # Draw direction arrows every N steps
+    N = 20
+    for i in range(0, len(x), N):
+        dx, dy = directions[i]
+        plt.arrow(x[i], y[i], dx * 0.2, dy * 0.2, head_width=0.5, color='red')
+
+    plt.title("Vehicle Trajectory Colored by Speed with Direction Arrows")
+    plt.xlim(-100, 100)
+    plt.ylim(-100, 100)
+    plt.xlabel("X Position (m)")
+    plt.ylabel("Y Position (m)")
+    plt.grid(True)
     plt.show()
 
 
-#TODO:
-#plot this on a matplotlib graph, where the color of each dot represents what time it was recorded at, to beter show speed and direction of travel
