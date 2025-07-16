@@ -1,8 +1,8 @@
-from ..model.vehical_model import Vehicle_Input, Vehicle_State, Dynamics_Model
+from model.vehical_model import Vehicle_Input, Vehicle_State, Dynamics_Model
 import casadi
 import numpy as np
 from scipy.optimize import minimize
-
+from typing import List
 
 class Model_Predictive_Contol():
 
@@ -13,7 +13,7 @@ class Model_Predictive_Contol():
         self.dynamics_model = Dynamics_Model(timestep=timestep)
         self.previous_inputs = [Vehicle_Input(1,0) for x in range(self.horizon)]
         
-    def forward_simulation(self, initial_state:Vehicle_State, inputs:list[Vehicle_Input]) -> list[Vehicle_State]:
+    def forward_simulation(self, initial_state:Vehicle_State, inputs:List[Vehicle_Input]) -> List[Vehicle_State]:
         """This function should make a predicted path based upon the current state of the car, and the given inputs
         
         Returns:
@@ -35,7 +35,7 @@ class Model_Predictive_Contol():
 
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input) -> float:
         pass
-    def cost_function(self,initial_state:Vehicle_State,inputs:list[Vehicle_Input],required_path) -> float:
+    def cost_function(self,initial_state:Vehicle_State,inputs:List[Vehicle_Input],required_path) -> float:
         """This function should calculate the cost of any given route.
         It should do this by computing the sum of the cost of each individual stage.
         

@@ -12,8 +12,9 @@ from sensor_msgs.msg import Imu,NavSatFix
 
 from numpy import ndarray
 
-from ...MPC.main import Model_Predictive_Contol
-from ...model.vehical_model import Vehicle_Input, Vehicle_State
+#
+from MPC.main import Model_Predictive_Contol
+from model.vehical_model import Vehicle_Input, Vehicle_State
 
 class MinimalPublisher(Node):
 
@@ -24,6 +25,9 @@ class MinimalPublisher(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
 
+        self.as_state = 0
+        self.ami_state = 0
+
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
         self.wheel_speeds_sub = self.create_subscription(WheelSpeedsStamped,"ros_can/wheel_speeds",self.wheel_speeds_callback,10)
@@ -33,7 +37,7 @@ class MinimalPublisher(Node):
 
         #set up subscriber(s) to get data via path planning
 
-        self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, directional_velocity=0.0, perpendicualar_velocity=0.0, yaw_rate=0.0)
+        self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
 
     #called whenever a msg is recieved
@@ -50,11 +54,11 @@ class MinimalPublisher(Node):
         rf = wheels.rf_speed
         steering = wheels.steering
         self.current_state  = Vehicle_State(
-            xpos=0.0, # MPC will always assume
-            ypos=0.0, # ????
+            x_pos=0.0, # MPC will always assume
+            y_pos=0.0, # ????
             yaw_angle=0.0, 
-            directional_velocity=(lb+lf+rb+rf)/4.0, # average speed
-            perpendicualar_velocity=0.0, # how much the car is sliding
+            x_speed=(lb+lf+rb+rf)/4.0, # average speed
+            y_speed=0.0, # how much the car is sliding
             yaw_rate= steering # DEFINITLY NOT CORRECT
             )
 
@@ -101,7 +105,7 @@ class MinimalPublisher(Node):
             # msg.drive.speed=10.0    
 
             try:
-                commands = self.mpc_unit.main(initial_state=self.current_state, required_path=,)#get required path from path planning, not sure where to get initial state from
+                commands = self.mpc_unit.main(initial_state=self.current_state)#get required path from path planning, not sure where to get initial state from
                 msg.drive.acceleration = commands.acceleration 
                 msg.drive.steering_angle = commands.steering_angle
             except Exception as e:
