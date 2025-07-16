@@ -35,7 +35,8 @@ class Dynamics_Model():
         lf: distance from centre of gravity to front axel (m)
         lr: distance from centre of gravity to rear axel (m)
         yaw_inertia: lateral inertia of the vehicle (kgm^2)"""
-    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500):
+    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
+        self.matPlotLib = matPlotLib
         self.state = state
         #self.input = input
         
@@ -49,11 +50,16 @@ class Dynamics_Model():
 
         self.timestep_count=0
 
-        # for matplotlib
-        x_positions.append(self.state.xpos)
-        y_positions.append(self.state.ypos)
 
-    
+        # for matplotlib
+        if self.matPlotLib:
+            x_positions.append(self.state.xpos)
+            y_positions.append(self.state.ypos)
+
+    def set_state(self, state:Vehicle_State):
+        self.state = state
+    def get_state(self):
+        return self.state
 
     def calc_front_lateral_force(self,steering_angle):
         if self.state.directional_velocity==0:
@@ -90,8 +96,9 @@ class Dynamics_Model():
         self.state = next_state
         self.timestep_count+=1
 
-        x_positions.append(self.state.xpos)
-        y_positions.append(self.state.ypos)
+        if self.matPlotLib:
+            x_positions.append(self.state.xpos)
+            y_positions.append(self.state.ypos)
 
 if __name__ == "__main__":
     # testing purposes
@@ -99,7 +106,7 @@ if __name__ == "__main__":
     x_positions = []
     y_positions = []
 
-    model = Dynamics_Model(timestep=0.01)
+    model = Dynamics_Model(timestep=0.01, matPlotLib=True)
     #generate some inputs
     inputs = [Vehicle_Input(3,0) for x in range(500)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(3,0) for x in range(100)] + [Vehicle_Input(0,0.3) for x in range(50)] + [Vehicle_Input(0,0) for x in range(200)]
 
