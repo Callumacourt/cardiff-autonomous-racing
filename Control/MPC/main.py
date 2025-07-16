@@ -11,6 +11,7 @@ class Model_Predictive_Contol():
         self.horizon = 50
 
         self.dynamics_model = Dynamics_Model(timestep=timestep)
+        self.previous_inputs = [Vehicle_Input(1,0) for x in range(self.horizon)]
         
     def forward_simulation(self, initial_state:Vehicle_State, inputs:list[Vehicle_Input]) -> list[Vehicle_State]:
         """This function should make a predicted path based upon the current state of the car, and the given inputs
@@ -66,8 +67,9 @@ class Model_Predictive_Contol():
         """
 
         # calculate cost for a bunch of different states, use the one with the lowest cost
-        if initial_state is None:
-            initial_state = Vehicle_State()  # Or however you get the current state
+        
+        if inputs == None:
+            inputs = self.previous_inputs
 
         # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
         u0 = np.array([1, 0] * self.horizon)
@@ -81,7 +83,7 @@ class Model_Predictive_Contol():
 
         def objective(u):
             inputs = unpack_inputs(u)
-            return self.cost_function(initial_state, inputs)
+            return self.cost_function(initial_state, inputs,required_path)
 
         res = minimize(objective, u0, bounds=bounds, method='SLSQP', options={'maxiter': 100, 'disp': True})
 
