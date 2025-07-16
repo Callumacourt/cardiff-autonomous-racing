@@ -32,8 +32,8 @@ class MinimalPublisher(Node):
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
         #set up subscriber(s) to get data via path planning
-        
 
+        self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, directional_velocity=0.0, perpendicualar_velocity=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
 
     #called whenever a msg is recieved
@@ -49,14 +49,14 @@ class MinimalPublisher(Node):
         rb = wheels.rb_speed
         rf = wheels.rf_speed
         steering = wheels.steering
-        self.mpc_unit.dynamics_model.set_state(Vehicle_State(
+        self.current_state  = Vehicle_State(
             xpos=0.0, # MPC will always assume
             ypos=0.0, # ????
             yaw_angle=0.0, 
             directional_velocity=(lb+lf+rb+rf)/4.0, # average speed
             perpendicualar_velocity=0.0, # how much the car is sliding
             yaw_rate= steering # DEFINITLY NOT CORRECT
-        ))
+            )
 
     def twist_callback(self,msg:TwistWithCovarianceStamped):
         header = msg.header
@@ -101,7 +101,7 @@ class MinimalPublisher(Node):
             # msg.drive.speed=10.0    
 
             try:
-                commands = self.mpc_unit.main(initial_state=, required_path=,)#get required path from path planning, not sure where to get initial state from
+                commands = self.mpc_unit.main(initial_state=self.current_state, required_path=,)#get required path from path planning, not sure where to get initial state from
                 msg.drive.acceleration = commands.acceleration 
                 msg.drive.steering_angle = commands.steering_angle
             except Exception as e:
