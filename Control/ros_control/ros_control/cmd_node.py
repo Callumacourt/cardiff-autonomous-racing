@@ -13,6 +13,7 @@ from sensor_msgs.msg import Imu,NavSatFix
 from numpy import ndarray
 
 from ...MPC.main import Model_Predictive_Contol
+FROM ...model.vehical_model import Vehicle_Input, Vehicle_State
 
 class MinimalPublisher(Node):
 
@@ -45,7 +46,15 @@ class MinimalPublisher(Node):
         rb = wheels.rb_speed
         rf = wheels.rf_speed
         steering = wheels.steering
-        pass
+        self.mpc_unit.dynamics_model.set_state(Vehicle_State(
+            xpos=0.0, # ????
+            ypos=0.0, # ????
+            yaw_angle=0.0, 
+            directional_velocity=(lb+lf+rb+rf)/4.0, # average speed
+            perpendicualar_velocity=0.0, # ????
+            yaw_rate=0.0
+        ))
+
     def twist_callback(self,msg:TwistWithCovarianceStamped):
         header = msg.header
         twist_with_covariance = msg.twist
@@ -87,8 +96,14 @@ class MinimalPublisher(Node):
         # acceleration and steering angle
         if self.as_state == 3:# car is in AS_DRIVING
             # msg.drive.speed=10.0    
-            msg.drive.acceleration = 1.0 # make sure these are floats
-            msg.drive.steering_angle = 2.0
+
+            try:
+                commands = self.mpc_unit.main(initial_state=, required_path=,)#get required path from path planning, not sure where to get initial state from
+                msg.drive.acceleration = commands.acceleration 
+                msg.drive.steering_angle = commands.steering_angle
+            except Exception as e:
+                msg.drive.acceleration = 1.0 # make sure these are floats
+                msg.drive.steering_angle = 0.0
             # msg.drive.steering_angle_velocity
             # msg.drive.jerk
             self.publisher_.publish(msg)
