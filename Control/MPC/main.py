@@ -1,5 +1,8 @@
 from ..model.vehical_model import Vehicle_Input, Vehicle_State, Dynamics_Model
 import casadi
+import numpy as np
+from scipy.optimize import minimize
+
 
 class Model_Predictive_Contol():
 
@@ -31,7 +34,7 @@ class Model_Predictive_Contol():
 
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input) -> float:
         pass
-    def cost_function(self,initial_state:Vehicle_State,inputs:list[Vehicle_Input]) -> float:
+    def cost_function(self,initial_state:Vehicle_State,inputs:list[Vehicle_Input],required_path) -> float:
         """This function should calculate the cost of any given route.
         It should do this by computing the sum of the cost of each individual stage.
         
@@ -52,7 +55,7 @@ class Model_Predictive_Contol():
 
         return total_cost
 
-    def main(self) -> Vehicle_Input:
+    def main(self,initial_state:Vehicle_State,required_path,inputs=[Vehicle_Input(1,0) for x in range(50)]) -> Vehicle_Input:
         """This function is the main model predictive control loop.
         It should minimize the cost of the path by creating a set of inputs to 
         follow a dynamically feasible trajectory, 
@@ -63,6 +66,24 @@ class Model_Predictive_Contol():
         """
 
         # calculate cost for a bunch of different states, use the one with the lowest cost
-        
+        if initial_state is None:
+            initial_state = Vehicle_State()  # Or however you get the current state
 
-        return 
+        # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
+        u0 = np.array([1, 0] * self.horizon)
+
+        # Bounds for acceleration and steering (example: acceleration [-5, 5], steering [-0.5, 0.5])
+        bounds = [(-5, 5), (-0.5, 0.5)] * self.horizon
+
+        def unpack_inputs(u):
+            """Convert flat array to list of Vehicle_Input."""
+            return [Vehicle_Input(u[2*i], u[2*i+1]) for i in range(self.horizon)]
+
+        def objective(u):
+            inputs = unpack_inputs(u)
+            return self.cost_function(initial_state, inputs)
+
+        res = minimize(objective, u0, bounds=bounds, method='SLSQP', options={'maxiter': 100, 'disp': True})
+
+        best_inputs = unpack_inputs(res.x)
+        return best_inputs[0]  # Return the first input to apply now
