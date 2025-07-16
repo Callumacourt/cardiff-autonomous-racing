@@ -1,6 +1,6 @@
 import os
 from dummy_inputs import generate_dummy_data, save_to_file
-from rrt_star import rrt_star, Node, plot, PathStatus
+from rrt_star import rrt_star, plot, PathStatus
 
 # ---------------------- TEMPORARY FUNCTION ------------------------------------
 # A function which reads the content of the input file we are using as temporary input information.
@@ -9,7 +9,7 @@ def read_input_file(input_file_path):
         with open(input_file_path, 'r') as file:
             lines = file.readlines()
             data = [line.strip().split('\t') for line in lines[1:]]
-
+            
             # Calculate start
             start_x = (float(data[0][1].split(',')[0]) + float(data[0][2].split(',')[0])) / 2
             start_y = (float(data[0][1].split(',')[1]) + float(data[0][2].split(',')[1])) / 2
