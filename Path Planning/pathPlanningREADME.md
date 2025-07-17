@@ -3,6 +3,8 @@
 ## Description
 This section of the codebase is the path planning algorithm that uses the RRT* approach to generate an optimised path for an autonomous vehicle. This will interpret data from the perception team, process a path and send it to the control team.
 
+#Must use Ubuntu 22.04 LTS
+
 ## Project Structure
 Here is the structure of the project:
  - **main.py** - The main file which runs the project and links all the parts of the project.
@@ -19,6 +21,57 @@ Here is the structure of the project:
 **Installing Dependencies**
 ```
 pip install -r requirements.txt
+```
+
+#Numpy
+```
+pip install numpy
+```
+
+#ROS2
+```
+pip install ros
+```
+
+#MatPlotLib
+```
+pip install matplotlib
+```
+
+#Python Virtual Environment
+```
+sudo apt install python3-venv
+```
+
+#Tkinter
+```
+sudo apt install python3-tk -y
+```
+
+If you encounter the following error:
+```
+Import Error: cannot import name 'ImageTk' from 'PIL'
+```
+Run the following commands:
+```
+python3 -m venv myenv
+source myenv/bin/activate
+pip install --upgrade pip
+pip uninstall pillow
+pip install pillow
+```
+
+If you are still encountering the same error, run the following commands:
+```
+sudo apt update
+sudo apt install python3-tk tk-dev
+pip uninstall pillow -y
+pip install --no-cache-dir --force-reinstall pillow
+```
+
+#PyGame
+```
+pip install pygame
 ```
 
 When starting the project, **run dummyInputs.py** to generate a basic 3D-array in the **inputs.txt file**.
@@ -43,9 +96,4 @@ If there is something wrong with the code or you need help, please reach out to 
 
 - Dominick George
 - Harley Doe
-- Thomas Brown
-- Timothee Lux
 - Callum A'court
-- Alexander Stephens
-- Shaina Ashok Patel
-- Romilly Nash
