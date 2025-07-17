@@ -11,4 +11,6 @@ then in a seperate terminal:
 
 cd ros_control/launch
 
+export PYTHONPATH=$PYTHONPATH:/"your path to here"/cardiff-autonomous-racing/Control/ros_control/ros_control
+
 ros2 launch ros_control.launch.py
