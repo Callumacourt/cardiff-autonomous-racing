@@ -8,13 +8,14 @@ from nav_msgs.msg import Path
 class PathPlannerNode(Node):
     def __init__(self):
         super().__init__('path_planner')
+        # Current CAR coordinates - updates due to pose callback
         self.current_pose = (0.0, 0.0)
         self.left_cones = []  # [x, y]
         self.right_cones = [] 
         self.centerline = []
         self.last_goal_idx = 0
 
-        # Subscribe to cone mapper output
+        # Subscribe to cone mapper output - updated by perception as CAR moves
         self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
         self.create_subscription(String, '/world_cones', self.world_cones_callback, 10)
 
@@ -45,7 +46,7 @@ class PathPlannerNode(Node):
                 self.left_cones.append((x, y))
             elif int(colour) == 1:  # Yellow cones (right side)
                 self.right_cones.append((x, y))
-
+  
     def generate_centerline(self):
         """Generate centerline from left and right cones"""
         if not self.left_cones or not self.right_cones:
@@ -81,6 +82,7 @@ class PathPlannerNode(Node):
     def get_current_obstacles(self, cone_radius=1.0):
         return [(x, y, cone_radius) for (x, y) in self.left_cones + self.right_cones]
 
+    # give path to control
     def publish_path(self, path_points):
         path_msg = Path()
         path_msg.header = Header()
@@ -96,12 +98,13 @@ class PathPlannerNode(Node):
         self.path_pub.publish(path_msg)
 
     def main_loop(self):
+        # Runs until perception encounters the end cone
         try:
             if not self.left_cones or not self.right_cones:
                 self.get_logger().warn("Waiting for cone data...")
                 return
 
-            # Generate centerline from cones
+            # Generate centerline from cones // not needed we can get from perception
             self.generate_centerline()
             if not self.centerline:
                 self.get_logger().warn("No centerline generated")
@@ -117,6 +120,7 @@ class PathPlannerNode(Node):
             
             if result.status in [PathStatus.SUCCESS, PathStatus.PARTIAL]:
                 self.get_logger().info(f"Path found with {len(result.path)} points")
+                self.get_logger().info(f"Start: {start}, Goal: {goal}")
                 self.publish_path(result.path)
             else:
                 self.get_logger().warn("No path found")
