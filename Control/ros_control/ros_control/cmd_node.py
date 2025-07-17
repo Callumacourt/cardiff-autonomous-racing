@@ -11,6 +11,9 @@ from geometry_msgs.msg import TwistWithCovarianceStamped
 from sensor_msgs.msg import Imu,NavSatFix
 from nav_msgs.msg import Path
 
+from std_srvs.srv import Trigger
+
+
 from numpy import ndarray
 
 #
@@ -47,8 +50,8 @@ class MinimalPublisher(Node):
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
         #set up subscriber(s) to get data via path planning
-        #self.path = None
-        #self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
+        self.path = None
+        self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
@@ -60,9 +63,22 @@ class MinimalPublisher(Node):
         if self.time_at_event_start == 0:
             self.time_at_event_start = time
     
-    #def path_callback(self,msg:Path):
-    #    header = msg.header
-    #    self.path = msg.poses
+    def trigger_ebs(self):
+        client = self.create_client(Trigger,"/ros_can/ebs")
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for /ros_can/ebs service...')
+        req = Trigger.Request()
+        future = client.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
+        if future.result() is not None and future.result().success:
+            self.get_logger().info('EBS triggered successfully!')
+        else:
+            self.get_logger().error('Failed to trigger EBS!')
+
+
+    def path_callback(self,msg:Path):
+        header = msg.header
+        self.path = msg.poses
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
@@ -193,8 +209,7 @@ class MinimalPublisher(Node):
                         self.static_B_flag = 1
                     self.publisher_.publish(msg)
                 if self.static_B_flag == 1:
-                    #after 0.5 seconds of no command message, an estop should be triggered
-                    pass
+                    self.trigger_ebs()
         elif self.ami_state == 7: #autonomous demo
             if self.as_state == 3:
                 #steering left and right and return to straight
@@ -233,7 +248,7 @@ class MinimalPublisher(Node):
                         self.time_at_event_start = 0
                 #deploy ebs
                 if self.autonomous_demo_flag == 6:
-                    pass
+                    self.trigger_ebs()
                 else:
                     self.publisher_.publish(msg)
 
