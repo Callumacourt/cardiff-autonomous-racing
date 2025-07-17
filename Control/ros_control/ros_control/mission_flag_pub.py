@@ -13,9 +13,13 @@ class MissionFlagNode(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i=0
 
+        self.subscriber = self.create_subscription(Bool,"mission_complete",10)
 
-    def set_mission_complete(self,complete):
-        self.mission_complete = complete
+
+    def mission_complete_callback(self,msg:Bool):
+        self.mission_complete = msg
+
+
 
     def timer_callback(self):
         msg = Bool()
