@@ -22,6 +22,8 @@ class MinimalPublisher(Node):
     def __init__(self):
         super().__init__('ros_control')
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
+        self.publisher_df = self.create_publisher(std_msgs.msg.Bool, "state_machine/driving_flag", 10)
+        self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_complete", 10)
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
@@ -45,22 +47,22 @@ class MinimalPublisher(Node):
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
         #set up subscriber(s) to get data via path planning
-        self.path = None
-        self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
+        #self.path = None
+        #self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
         
-        self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'mission_complete', 10)
+        #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
         self.mission_complete = False
 
     def set_time_at_event_start(self,time):
         if self.time_at_event_start == 0:
             self.time_at_event_start = time
     
-    def path_callback(self,msg:Path):
-        header = msg.header
-        self.path = msg.poses
+    #def path_callback(self,msg:Path):
+    #    header = msg.header
+    #    self.path = msg.poses
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
@@ -179,10 +181,7 @@ class MinimalPublisher(Node):
                 if self.static_A_flag == 5 and not self.mission_complete:
                     #set mission complete
                     self.mission_complete = True
-                    mission_msg = std_msgs.msg.Bool()
-                    mission_msg.data = True
-                    self.mission_complete_pub.publish(mission_msg)
-                    self.get_logger().info("Mission complete published!")
+                    #self.get_logger().info("Mission complete published!")
                 
                 self.publisher_.publish(msg)     
         elif self.ami_state == 6: #static inspection B
@@ -238,8 +237,14 @@ class MinimalPublisher(Node):
                 else:
                     self.publisher_.publish(msg)
 
+        mission_msg = std_msgs.msg.Bool()
+        mission_msg.data = self.mission_complete
 
+        driving_flag_msg = std_msgs.msg.Bool()
+        driving_flag_msg.data = True
 
+        self.publisher_df.publish(driving_flag_msg)
+        self.publisher_mf.publish(mission_msg)
         self.i += 1
 
 

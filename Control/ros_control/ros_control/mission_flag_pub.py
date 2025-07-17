@@ -13,7 +13,7 @@ class MissionFlagNode(Node):
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i=0
 
-        self.subscriber = self.create_subscription(Bool,"mission_complete",self.mission_complete_callback,10)
+        self.subscriber = self.create_subscription(Bool,"ros_control/mission_complete",self.mission_complete_callback,10)
 
 
     def mission_complete_callback(self,msg:Bool):

@@ -4,6 +4,8 @@ to start car:
 
 cd ros_can/FS-AI-API/setup.sh
 
+./setup.sh
+
 ros2 launch ros_can ros_can.launch.py
 
 
@@ -15,4 +17,4 @@ export PYTHONPATH=$PYTHONPATH:/"your path to here"/ros_control/ros_control
 
 /\ this only needs to be done once per time you log on to your pc, alternatively add it to your ~/.bashrc
 
-ros2 launch ros_control.launch.py
+ros2 run ros_control command_node

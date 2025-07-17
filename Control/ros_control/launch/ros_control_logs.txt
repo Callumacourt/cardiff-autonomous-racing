@@ -1,0 +1,8 @@
+[INFO] [launch]: All log files can be found below /home/thomas/.ros/log/2025-07-17-16-02-40-346280-thomas-Lenovo-ideapad-310-15IKB-10812
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [mission_flag_pub-1]: process started with pid [10814]
+[INFO] [driving_flag_pub-2]: process started with pid [10816]
+[INFO] [command_node-3]: process started with pid [10818]
+[ERROR] [command_node-3]: process has died [pid 10818, exit code -15, cmd '/home/thomas/Documents/test/cardiff-autonomous-racing/Control/install/ros_control/lib/ros_control/command_node --ros-args'].
+[ERROR] [mission_flag_pub-1]: process has died [pid 10814, exit code -15, cmd '/home/thomas/Documents/test/cardiff-autonomous-racing/Control/install/ros_control/lib/ros_control/mission_flag_pub --ros-args'].
+[ERROR] [driving_flag_pub-2]: process has died [pid 10816, exit code -15, cmd '/home/thomas/Documents/test/cardiff-autonomous-racing/Control/install/ros_control/lib/ros_control/driving_flag_pub --ros-args'].
