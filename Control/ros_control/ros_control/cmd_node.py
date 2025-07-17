@@ -9,6 +9,7 @@ import std_msgs.msg
 from eufs_msgs.msg import CanState, WheelSpeedsStamped
 from geometry_msgs.msg import TwistWithCovarianceStamped
 from sensor_msgs.msg import Imu,NavSatFix
+from nav_msgs.msg import Path
 
 from numpy import ndarray
 
@@ -44,6 +45,7 @@ class MinimalPublisher(Node):
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
         #set up subscriber(s) to get data via path planning
+        self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
@@ -54,6 +56,10 @@ class MinimalPublisher(Node):
     def set_time_at_event_start(self,time):
         if self.time_at_event_start == 0:
             self.time_at_event_start = time
+    
+    def path_callback(self,msg:Path):
+
+        pass
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
