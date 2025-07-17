@@ -26,7 +26,7 @@ class MinimalPublisher(Node):
         super().__init__('ros_control')
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
         self.publisher_df = self.create_publisher(std_msgs.msg.Bool, "state_machine/driving_flag", 10)
-        self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_complete", 10)
+        self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_completed", 10)
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
@@ -51,7 +51,8 @@ class MinimalPublisher(Node):
 
         #set up subscriber(s) to get data via path planning
         self.path = None
-        self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
+        self.path_sub = self.create_subscription(Path,"planned_path",self.path_callback,10)
+
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
