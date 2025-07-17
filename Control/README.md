@@ -13,4 +13,6 @@ cd ros_control/launch
 
 export PYTHONPATH=$PYTHONPATH:/"your path to here"/cardiff-autonomous-racing/Control/ros_control/ros_control
 
+/\ this only needs to be done once per time you log on to your pc
+
 ros2 launch ros_control.launch.py
