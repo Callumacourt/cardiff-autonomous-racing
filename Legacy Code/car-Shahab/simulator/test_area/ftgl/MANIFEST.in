@@ -1,3 +1,0 @@
-include COPYING README MANIFEST.in
-include *.py
-include *.cpp

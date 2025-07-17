@@ -1,6 +1,0 @@
-function I = draw_cross(I, x, y, colour, alpha)
-
-cross = 8;
-draw_line(I, ...
-    [x - cross y; x y - cross]', ...
-    [x + cross y; x y + cross]', colour, alpha);
