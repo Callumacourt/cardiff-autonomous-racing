@@ -209,7 +209,7 @@ class MinimalPublisher(Node):
                     self.set_time_at_event_start(self.i)
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
-                    if 0.5 * 2.0 * ((self.i-self.time_at_event_start)*100**2) >= 10:
+                    if 0.5 * 2.0 * ((self.i-self.time_at_event_start)/self.timer_period**2) >= 10:
                         self.autonomous_demo_flag = 4
                 #stop within a furthur 10m
                 if self.autonomous_demo_flag == 4:
@@ -222,7 +222,7 @@ class MinimalPublisher(Node):
                     self.set_time_at_event_start(self.i)
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
-                    if 0.5 * 2.0 * (self.i*100**2) >= 10:
+                    if 0.5 * 2.0 * (self.i/self.timer_period**2) >= 10:
                         self.autonomous_demo_flag = 6
                         self.time_at_event_start = 0
                 #deploy ebs
