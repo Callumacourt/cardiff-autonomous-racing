@@ -27,6 +27,10 @@ class MinimalPublisher(Node):
 
         self.as_state = 0
         self.ami_state = 0
+        self.steering_angle_rad = 0
+        self.wheel_speeds = 0
+        
+        self.static_A_flag = 0
 
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
@@ -39,6 +43,10 @@ class MinimalPublisher(Node):
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
+        
+        self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'mission_complete', 10)
+        self.mission_complete = False
+
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
@@ -48,10 +56,12 @@ class MinimalPublisher(Node):
     def wheel_speeds_callback(self,msg:WheelSpeedsStamped):
         header = msg.header
         wheels = msg.speeds
-        lb = wheels.lb_speed
+        # in RPM
+        lb = wheels.lb_speed 
         lf = wheels.lf_speed
         rb = wheels.rb_speed
         rf = wheels.rf_speed
+        # in RADIANS
         steering = wheels.steering
         self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
@@ -101,25 +111,68 @@ class MinimalPublisher(Node):
         # before sending them to the car
         # the ackermanndrive msg has more parameters than the car uses, we currently only need to worry about 
         # acceleration and steering angle
-        if self.as_state == 3:# car is in AS_DRIVING
-            # msg.drive.speed=10.0    
+        if self.ami_state == 1:#accelleration
+            if self.as_state == 3:# car is in AS_DRIVING
+                # msg.drive.speed=10.0    
 
-            try:
-                commands = self.mpc_unit.main(initial_state=self.current_state)#get required path from path planning, not sure where to get initial state from
-                msg.drive.acceleration = commands.acceleration 
-                msg.drive.steering_angle = commands.steering_angle
-            except Exception as e:
-                msg.drive.acceleration = 1.0 # make sure these are floats
+                try:
+                    commands = self.mpc_unit.main(initial_state=self.current_state)#get required path from path planning, not sure where to get initial state from
+                    msg.drive.acceleration = commands.acceleration 
+                    msg.drive.steering_angle = commands.steering_angle
+                except Exception as e:
+                    msg.drive.acceleration = 1.0 # make sure these are floats
+                    msg.drive.steering_angle = 0.0
+                # msg.drive.steering_angle_velocity
+                # msg.drive.jerk
+                self.publisher_.publish(msg)
+                #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
+            elif self.as_state == 2: # car is in AS_READY
+                msg.drive.acceleration = 0.0
                 msg.drive.steering_angle = 0.0
-            # msg.drive.steering_angle_velocity
-            # msg.drive.jerk
-            self.publisher_.publish(msg)
-            #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
-        elif self.as_state == 2: # car is in AS_READY
-            msg.drive.acceleration = 0.0
-            msg.drive.steering_angle = 0.0
-            #msg.drive.steering_angle_velocity = 0
-        
+                #msg.drive.steering_angle_velocity = 0
+        elif self.ami_state == 5: #static inspection A
+            if self.as_state == 3:
+                msg.drive.acceleration = 0.0
+                #steer all the way one way
+                if self.static_A_flag == 0:
+                    msg.drive.steering_angle = 0.5
+                    if self.steering_angle_rad >= 0.41:
+                        self.static_A_flag = 1
+                #steer all the way in the opposite direction
+                if self.static_A_flag == 1:
+                    msg.drive.steering_angle = -0.5
+                    if self.steering_angle_rad <=-0.41:
+                        self.static_A_flag = 2
+                #steering back to centre
+                if self.static_A_flag == 2:
+                    msg.drive.steering_angle = 0.0
+                    if self.steering_angle_rad == 0.0:
+                        self.static_A_flag = 3
+                #wheels to 200rpm
+                if self.static_A_flag == 3:
+                    if self.wheel_speeds < 200.0:
+                        msg.drive.acceleration = 20.0
+                    else:
+                        self.static_A_flag = 4
+                #stop car
+                if self.static_A_flag == 4:
+                    msg.drive.acceleration = -50.0
+                    if self.wheel_speeds == 0.0:
+                        self.static_A_flag = 5
+                # set AS_FINISHED
+                if self.static_A_flag == 5 and not self.mission_complete:
+                    #set mission complete
+                    self.mission_complete = True
+                    mission_msg = std_msgs.msg.Bool()
+                    mission_msg.data = True
+                    self.mission_complete_pub.publish(mission_msg)
+                    self.get_logger().info("Mission complete published!")
+                
+                self.publisher_.publish(msg)
+                
+        elif self.ami_state == 6: #static inspection B
+            pass
+            
         self.i += 1
 
 
