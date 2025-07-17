@@ -8,3 +8,7 @@ cd to control
 colcon build --packages-select ros_control
 
 source install/setup.bash 
+
+export PYTHONPATH=$PYTHONPATH:$PWD"/ros_control/ros_control"
+
+/\ add this to ~/.bashrc , replacing $PWD with the path to cardiff-autonomous-racing/Control/

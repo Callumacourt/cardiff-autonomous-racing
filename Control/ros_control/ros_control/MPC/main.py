@@ -73,9 +73,15 @@ class Model_Predictive_Contol():
             inputs = self.previous_inputs
         if required_path == None: # if no path, dont do anything
             return Vehicle_Input(acceleration=0.0,steering_angle=0.0)
+        
+        self.horizon = len(required_path.poses) - 1
 
         # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
-        u0 = np.array([1, 0] * self.horizon)
+        try:
+            u0 = np.array([item for vi in self.previous_inputs for item in (vi.acceleration, vi.steering_angle)])
+        except:
+            u0 = np.array([1, 0] * self.horizon)
+
 
         # Bounds for acceleration and steering (example: acceleration [-5, 5], steering [-0.5, 0.5])
         bounds = [(-5, 5), (-0.5, 0.5)] * self.horizon
@@ -91,4 +97,5 @@ class Model_Predictive_Contol():
         res = minimize(objective, u0, bounds=bounds, method='SLSQP', options={'maxiter': 100, 'disp': True})
 
         best_inputs = unpack_inputs(res.x)
+        self.previous_inputs = best_inputs
         return best_inputs[0]  # Return the first input to apply now
