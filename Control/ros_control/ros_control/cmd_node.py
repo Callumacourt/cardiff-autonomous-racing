@@ -45,6 +45,7 @@ class MinimalPublisher(Node):
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
 
         #set up subscriber(s) to get data via path planning
+        self.path = None
         self.path_sub = self.create_subscription(Path,"UNKOWN",self.path_callback,10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
@@ -58,8 +59,8 @@ class MinimalPublisher(Node):
             self.time_at_event_start = time
     
     def path_callback(self,msg:Path):
-
-        pass
+        header = msg.header
+        self.path = msg.poses
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
@@ -131,7 +132,7 @@ class MinimalPublisher(Node):
                 # msg.drive.speed=10.0    
 
                 try:
-                    commands = self.mpc_unit.main(initial_state=self.current_state)#get required path from path planning, not sure where to get initial state from
+                    commands = self.mpc_unit.main(initial_state=self.current_state,required_path=self.path)#get required path from path planning, not sure where to get initial state from
                     msg.drive.acceleration = commands.acceleration 
                     msg.drive.steering_angle = commands.steering_angle
                 except Exception as e:

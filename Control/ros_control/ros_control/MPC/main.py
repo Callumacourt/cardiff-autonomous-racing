@@ -3,6 +3,7 @@ import casadi
 import numpy as np
 from scipy.optimize import minimize
 from typing import List
+from nav_msgs.msg import Path
 
 class Model_Predictive_Contol():
 
@@ -56,7 +57,7 @@ class Model_Predictive_Contol():
 
         return total_cost
 
-    def main(self,initial_state:Vehicle_State,required_path,inputs=[Vehicle_Input(1,0) for x in range(50)]) -> Vehicle_Input:
+    def main(self,initial_state:Vehicle_State,required_path:Path,inputs=[Vehicle_Input(1,0) for x in range(50)]) -> Vehicle_Input:
         """This function is the main model predictive control loop.
         It should minimize the cost of the path by creating a set of inputs to 
         follow a dynamically feasible trajectory, 
@@ -70,6 +71,8 @@ class Model_Predictive_Contol():
         
         if inputs == None:
             inputs = self.previous_inputs
+        if required_path == None: # if no path, dont do anything
+            return Vehicle_Input(acceleration=0.0,steering_angle=0.0)
 
         # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
         u0 = np.array([1, 0] * self.horizon)
