@@ -1,6 +1,14 @@
-cardiff-autonomous-racing.iml
-misc.xml
-modules.xml
-profile_settings.xml
-vcs.xml
-.idea/
+# VS Code
+.vscode
+__pycache__
+Path Planning/__pycache__
+
+# Jetbrains
+.idea
+Path Planning/.idea
+
+# Path Planning Dummy Data
+Path Planning/inputs.txt
+
+# Mac OS
+.DS_Store
