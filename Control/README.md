@@ -11,7 +11,7 @@ then in a seperate terminal:
 
 cd ros_control/launch
 
-export PYTHONPATH=$PYTHONPATH:/"your path to here"/cardiff-autonomous-racing/Control/ros_control/ros_control
+export PYTHONPATH=$PYTHONPATH:/"your path to here"/ros_control/ros_control
 
 /\ this only needs to be done once per time you log on to your pc, alternatively add it to your ~/.bashrc
 
