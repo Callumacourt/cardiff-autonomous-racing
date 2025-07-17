@@ -82,7 +82,6 @@ class Model_Predictive_Contol():
         except:
             u0 = np.array([1, 0] * self.horizon)
 
-
         # Bounds for acceleration and steering (example: acceleration [-5, 5], steering [-0.5, 0.5])
         bounds = [(-5, 5), (-0.5, 0.5)] * self.horizon
 
