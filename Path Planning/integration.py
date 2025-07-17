@@ -1,4 +1,4 @@
-from rrt_star import rrt_star, PathStatus
+from rrt_star import rrt_star, plot, PathStatus
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Point
@@ -9,8 +9,8 @@ class PathPlannerNode(Node):
     def __init__(self):
         super().__init__('path_planner')
         self.current_pose = (0.0, 0.0)
-        self.left_cones = []  # [x, y]
-        self.right_cones = [] 
+        self.left_cones = [(2.0, 2.0), (4.0, 2.0), (6.0, 2.0), (8.0, 2.0), (10.0, 2.0), (12.0, 2.0), (14.0, 2.0)]  # [x, y]
+        self.right_cones = [(2.0, -3.0), (4.0, -3.0), (6.0, -3.0), (8.0, -3.0), (10.0, -3.0), (12.0, -3.0), (14.0, -3.0)] 
         self.centerline = []
         self.last_goal_idx = 0
 
@@ -68,7 +68,7 @@ class PathPlannerNode(Node):
                 center_y = (left_cone[1] + nearest_right[1]) / 2
                 self.centerline.append((center_x, center_y))
 
-    def get_next_local_goal(self, lookahead=2.0):
+    def get_next_local_goal(self, lookahead=1.0):
         cx, cy = self.current_pose
         for i in range(self.last_goal_idx, len(self.centerline)):
             pt = self.centerline[i]
@@ -78,7 +78,7 @@ class PathPlannerNode(Node):
                 return pt
         return self.centerline[-1] if self.centerline else (0, 0)
 
-    def get_current_obstacles(self, cone_radius=1.0):
+    def get_current_obstacles(self, cone_radius=0.5):
         return [(x, y, cone_radius) for (x, y) in self.left_cones + self.right_cones]
 
     def publish_path(self, path_points):
@@ -108,16 +108,20 @@ class PathPlannerNode(Node):
                 return
 
             start = self.current_pose
-            goal = self.get_next_local_goal(lookahead=2.0)
+            goal = self.get_next_local_goal(lookahead=5.0)
             obstacles = self.get_current_obstacles()
             x_max, y_max = 500, 500
 
             # Run path planning
-            result = rrt_star(start, goal, obstacles, x_max, y_max, max_iter=200, max_step=2, goal_sample_rate=0.05)
+            result = rrt_star(start, goal, obstacles, x_max, y_max, max_iter=1000, max_step=1, goal_sample_rate=0.5)
             
             if result.status in [PathStatus.SUCCESS, PathStatus.PARTIAL]:
                 self.get_logger().info(f"Path found with {len(result.path)} points")
+                self.get_logger().info(f"{start}, {goal}")
                 self.publish_path(result.path)
+                plot(result.path, obstacles, start, goal, tree=result.tree, x_max=x_max, y_max=y_max)
+                self.current_pose = self.goal
+                self.get_logger().info(f"{start}")
             else:
                 self.get_logger().warn("No path found")
 
@@ -125,7 +129,7 @@ class PathPlannerNode(Node):
             self.get_logger().error(f"Exception in main_loop: {e}")
 
 def main(args=None):
-    rclpy.init(args=args)
+    rclpy.init(args=args) 
     node = PathPlannerNode()
     rclpy.spin(node)
 
