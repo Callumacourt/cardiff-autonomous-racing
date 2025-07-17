@@ -32,6 +32,9 @@ class MinimalPublisher(Node):
         
         self.static_A_flag = 0
         self.static_B_flag = 0
+        self.autonomous_demo_flag = 0
+
+        self.time_at_event_start = 0
 
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
@@ -48,6 +51,9 @@ class MinimalPublisher(Node):
         self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'mission_complete', 10)
         self.mission_complete = False
 
+    def set_time_at_event_start(self,time):
+        if self.time_at_event_start == 0:
+            self.time_at_event_start = time
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
@@ -154,12 +160,12 @@ class MinimalPublisher(Node):
                 #wheels to 200rpm
                 if self.static_A_flag == 3:
                     if self.wheel_speeds < 200.0:
-                        msg.drive.acceleration = 20.0
+                        msg.drive.acceleration = 2.0
                     else:
                         self.static_A_flag = 4
                 #stop car
                 if self.static_A_flag == 4:
-                    msg.drive.acceleration = -50.0
+                    msg.drive.acceleration = -4.0
                     if self.wheel_speeds == 0.0:
                         self.static_A_flag = 5
                 # set AS_FINISHED
@@ -171,8 +177,7 @@ class MinimalPublisher(Node):
                     self.mission_complete_pub.publish(mission_msg)
                     self.get_logger().info("Mission complete published!")
                 
-                self.publisher_.publish(msg)
-                
+                self.publisher_.publish(msg)     
         elif self.ami_state == 6: #static inspection B
             if self.as_state == 3:
                 if self.static_B_flag == 0:
@@ -180,9 +185,51 @@ class MinimalPublisher(Node):
                         msg.drive.acceleration = 20.0
                     else:
                         self.static_B_flag = 1
+                    self.publisher_.publish(msg)
                 if self.static_B_flag == 1:
                     #after 0.5 seconds of no command message, an estop should be triggered
                     pass
+        elif self.ami_state == 7: #autonomous demo
+            self.set_time_at_event_start(self.i)
+            if self.as_state == 3:
+                #steering left and right and return to straight
+                if self.autonomous_demo_flag == 0:
+                    msg.drive.steering_angle = 0.5
+                    if self.steering_angle_rad >= 0.41:
+                        self.autonomous_demo_flag = 1
+                if self.autonomous_demo_flag == 1:
+                    msg.drive.steering_angle = -0.5
+                    if self.steering_angle_rad <= 0.41:
+                        self.autonomous_demo_flag = 2
+                if self.autonomous_demo_flag == 2:
+                    msg.drive.steering_angle = 0.0
+                    if self.steering_angle_rad == 0.0:
+                        self.autonomous_demo_flag = 3
+                #accellerate for 10m to at least 15kph
+                if self.autonomous_demo_flag == 3:
+                    msg.drive.acceleration = 2.0
+                    #check if 10m have passed using suvat
+                    if 0.5 * 2.0 * (self.i*100**2) >= 10:
+                        self.autonomous_demo_flag = 4
+                #stop within a furthur 10m
+                if self.autonomous_demo_flag == 4:
+                    msg.drive.acceleration = -2.0
+                    if self.wheel_speeds == 0.0:
+                        self.autonomous_demo_flag = 5
+                #accellerate for a furthur 10m to at least 15kph
+                if self.autonomous_demo_flag == 5:
+                    msg.drive.acceleration = 2.0
+                    #check if 10m have passed using suvat
+                    if 0.5 * 2.0 * (self.i*100**2) >= 10:
+                        self.autonomous_demo_flag = 6
+                #deploy ebs
+                if self.autonomous_demo_flag == 6:
+                    pass
+                else:
+                    self.publisher_.publish(msg)
+
+
+
         self.i += 1
 
 
