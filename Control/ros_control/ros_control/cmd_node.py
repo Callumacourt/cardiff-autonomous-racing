@@ -31,6 +31,7 @@ class MinimalPublisher(Node):
         self.wheel_speeds = 0
         
         self.static_A_flag = 0
+        self.static_B_flag = 0
 
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
@@ -106,6 +107,8 @@ class MinimalPublisher(Node):
         msg.header = std_msgs.msg.Header()
         msg.drive = ackermann_msgs.msg.AckermannDrive()
 
+        msg.drive.acceleration = 0.0
+        msg.drive.steering_angle = 0.0
         # THIS IS WHERE COMMANDS ARE SENT TO ROS_CAN
         #ros_can will then check to make sure the commands are valid, and that the car should be driving
         # before sending them to the car
@@ -131,7 +134,7 @@ class MinimalPublisher(Node):
                 msg.drive.steering_angle = 0.0
                 #msg.drive.steering_angle_velocity = 0
         elif self.ami_state == 5: #static inspection A
-            if self.as_state == 3:
+            if self.as_state == 3: #if driving (given go signal)
                 msg.drive.acceleration = 0.0
                 #steer all the way one way
                 if self.static_A_flag == 0:
@@ -171,8 +174,14 @@ class MinimalPublisher(Node):
                 self.publisher_.publish(msg)
                 
         elif self.ami_state == 6: #static inspection B
-            pass
-            
+            if self.as_state == 3:
+                if self.static_B_flag == 0:
+                    if self.wheel_speeds < 50.0:
+                        msg.drive.acceleration = 20.0
+                    else:
+                        self.static_B_flag = 1
+                if self.static_B_flag == 1:
+                    
         self.i += 1
 
 
