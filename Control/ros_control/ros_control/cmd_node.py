@@ -190,7 +190,6 @@ class MinimalPublisher(Node):
                     #after 0.5 seconds of no command message, an estop should be triggered
                     pass
         elif self.ami_state == 7: #autonomous demo
-            self.set_time_at_event_start(self.i)
             if self.as_state == 3:
                 #steering left and right and return to straight
                 if self.autonomous_demo_flag == 0:
@@ -207,21 +206,25 @@ class MinimalPublisher(Node):
                         self.autonomous_demo_flag = 3
                 #accellerate for 10m to at least 15kph
                 if self.autonomous_demo_flag == 3:
+                    self.set_time_at_event_start(self.i)
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
-                    if 0.5 * 2.0 * (self.i*100**2) >= 10:
+                    if 0.5 * 2.0 * ((self.i-self.time_at_event_start)*100**2) >= 10:
                         self.autonomous_demo_flag = 4
                 #stop within a furthur 10m
                 if self.autonomous_demo_flag == 4:
                     msg.drive.acceleration = -2.0
                     if self.wheel_speeds == 0.0:
                         self.autonomous_demo_flag = 5
+                        self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
                 #accellerate for a furthur 10m to at least 15kph
                 if self.autonomous_demo_flag == 5:
+                    self.set_time_at_event_start(self.i)
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
                     if 0.5 * 2.0 * (self.i*100**2) >= 10:
                         self.autonomous_demo_flag = 6
+                        self.time_at_event_start = 0
                 #deploy ebs
                 if self.autonomous_demo_flag == 6:
                     pass
