@@ -181,7 +181,8 @@ class MinimalPublisher(Node):
                     else:
                         self.static_B_flag = 1
                 if self.static_B_flag == 1:
-                    
+                    #after 0.5 seconds of no command message, an estop should be triggered
+                    pass
         self.i += 1
 
 
