@@ -9,12 +9,12 @@ import std_msgs.msg
 from eufs_msgs.msg import CanState, WheelSpeedsStamped
 from geometry_msgs.msg import TwistWithCovarianceStamped
 from sensor_msgs.msg import Imu,NavSatFix
-from nav_msgs.msg import Path
+from nav_msgs.msg import Path, Odometry
 
 from std_srvs.srv import Trigger
 
-
-from numpy import ndarray
+import math
+import numpy as np
 
 #
 from MPC.main import Model_Predictive_Contol
@@ -53,6 +53,8 @@ class MinimalPublisher(Node):
         self.path = None
         self.path_sub = self.create_subscription(Path,"planned_path",self.path_callback,10)
 
+        #set up subscriber to get position from perception
+        self.odometry_sub = self.create_subscription(Odometry, "odometry/slam", self.odometry_callback, 10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period)
@@ -76,6 +78,8 @@ class MinimalPublisher(Node):
         else:
             self.get_logger().error('Failed to trigger EBS!')
 
+    def odometry_callback(self,msg:Odometry):
+        self.set_current_state(odometry=msg)
 
     def path_callback(self,msg:Path):
         header = msg.header
@@ -132,6 +136,47 @@ class MinimalPublisher(Node):
 
         status = msg.status
         pass
+    
+    def get_yaw_from_quaternion(self,orientation):
+        """
+        Returns the yaw (rotation around z) in radians from a geometry_msgs.msg.Quaternion
+        """
+        x = orientation.x
+        y = orientation.y
+        z = orientation.z
+        w = orientation.w
+
+        # Yaw calculation
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        return yaw
+    def set_current_state(self, odometry:Odometry):
+        pose = odometry.pose
+        position = pose.pose.position
+        
+        orientation = pose.pose.orientation
+        yaw = self.get_yaw_from_quaternion(orientation)
+
+        twist = odometry.twist
+        l_velocity = twist.twist.linear
+        a_velocity = twist.twist.angular
+
+        #use sin and cos to split into seperate velocities
+        # Rotate local velocities into world frame
+        v_x = l_velocity.x * math.cos(yaw) - l_velocity.y * math.sin(yaw)  # forward (directional)
+        v_y = l_velocity.x * math.sin(yaw) + l_velocity.y * math.cos(yaw)  # sideways (perpendicular)
+
+
+        state = Vehicle_State(
+            x_pos=position.x,
+            y_pos=position.y,
+            x_speed=v_x,
+            y_speed=v_y,
+            yaw_angle=yaw,
+            yaw_rate=a_velocity.z
+            )
+        self.mpc_unit.dynamics_model.set_state(state)
 
     #called periodically based on self.timer_period
     def timer_callback(self):
