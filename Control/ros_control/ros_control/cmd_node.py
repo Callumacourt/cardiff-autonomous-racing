@@ -100,14 +100,16 @@ class MinimalPublisher(Node):
         rf = wheels.rf_speed
         # in RADIANS
         steering = wheels.steering
-        self.current_state  = Vehicle_State(
+        self.wheel_speeds = (lb+lf+rb+rf)/4
+        self.steering_angle_rad = steering
+        """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
             y_pos=0.0, # ????
             yaw_angle=0.0, 
             x_speed=(lb+lf+rb+rf)/4.0, # average speed
             y_speed=0.0, # how much the car is sliding
             yaw_rate= steering # DEFINITLY NOT CORRECT
-            )
+            )"""
 
     def twist_callback(self,msg:TwistWithCovarianceStamped):
         header = msg.header
@@ -200,8 +202,9 @@ class MinimalPublisher(Node):
                     msg.drive.acceleration = commands.acceleration 
                     msg.drive.steering_angle = commands.steering_angle
                 except Exception as e:
-                    msg.drive.acceleration = 1.0 # make sure these are floats
-                    msg.drive.steering_angle = 0.0
+                    if self.current_state.directional_velocity < 5.0 or self.wheel_speeds < 200:
+                        msg.drive.acceleration = 1.0 # make sure these are floats
+                        msg.drive.steering_angle = 0.0
                 # msg.drive.steering_angle_velocity
                 # msg.drive.jerk
                 self.publisher_.publish(msg)
