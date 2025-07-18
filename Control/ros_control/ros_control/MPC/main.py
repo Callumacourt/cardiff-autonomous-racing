@@ -4,12 +4,15 @@ import numpy as np
 from scipy.optimize import minimize
 from typing import List
 from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped,Pose
+from math import sqrt
 
 class Model_Predictive_Contol():
 
-    def __init__(self,timestep:float,):
+    def __init__(self,timestep:float,max_speed:float=5.0):
         self.timestep = timestep
         self.horizon = 50
+        self.MAX_SPEED = max_speed
 
         self.dynamics_model = Dynamics_Model(timestep=timestep)
         self.previous_inputs = [Vehicle_Input(1,0) for x in range(self.horizon)]
@@ -34,9 +37,27 @@ class Model_Predictive_Contol():
 
         return states
 
-    def stage_cost(self, state:Vehicle_State,input:Vehicle_Input) -> float:
-        pass
-    def cost_function(self,initial_state:Vehicle_State,inputs:List[Vehicle_Input],required_path) -> float:
+    def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped) -> float:
+        cost = 0
+        pose = pose_stamped.pose
+
+        #penalize being far from point
+        cost += 100 * sqrt((state.xpos - pose.position.x)**2 + (state.ypos - pose.position.y)**2)
+        #penalize being to slow
+        if state.directional_velocity < 1.0:
+            cost += 25 * (1/state.directional_velocity)
+        #penalize being to fast
+        if state.directional_velocity > self.MAX_SPEED:
+            cost += 50 * (state.directional_velocity)
+        #penalize sliding
+        cost += 1000 * state.perpendicualar_velocity
+
+        #penalize super sharp steering
+        cost += 5 * state.yaw_rate
+
+        return cost
+        
+    def cost_function(self,initial_state:Vehicle_State,inputs:List[Vehicle_Input],required_path:Path) -> float:
         """This function should calculate the cost of any given route.
         It should do this by computing the sum of the cost of each individual stage.
         
@@ -53,7 +74,7 @@ class Model_Predictive_Contol():
         #calculate the cost for each and sum them
         total_cost = 0
         for i in range(0,self.horizon):
-            total_cost += self.stage_cost(state=states,input=inputs[i])
+            total_cost += self.stage_cost(state=states,input=inputs[i],point=required_path.poses[i])
 
         return total_cost
 
@@ -98,3 +119,7 @@ class Model_Predictive_Contol():
         best_inputs = unpack_inputs(res.x)
         self.previous_inputs = best_inputs
         return best_inputs[0]  # Return the first input to apply now
+    
+if __name__ == "__main__":
+    #for testing
+    pass
