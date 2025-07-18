@@ -8,15 +8,16 @@ from nav_msgs.msg import Path
 class PathPlannerNode(Node):
     def __init__(self):
         super().__init__('path_planner')
+        # Current CAR coordinates - updates due to pose callback
         self.current_pose = (0.0, 0.0)
         self.left_cones = [(2.0, 2.0), (4.0, 2.0), (6.0, 2.0), (8.0, 2.0), (10.0, 2.0), (12.0, 2.0), (14.0, 2.0)]  # [x, y]
         self.right_cones = [(2.0, -3.0), (4.0, -3.0), (6.0, -3.0), (8.0, -3.0), (10.0, -3.0), (12.0, -3.0), (14.0, -3.0)] 
         self.centerline = []
         self.last_goal_idx = 0
 
-        # Subscribe to cone mapper output
+        # Subscribe to cone mapper output 
         self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
-        self.create_subscription(String, '/world_cones', self.world_cones_callback, 10)
+        self.create_subscription(String, '/cone_map/local', self.world_cones_callback, 10)  
 
         # Publisher for the planned path
         self.path_pub = self.create_publisher(Path, '/planned_path', 10)
@@ -36,15 +37,23 @@ class PathPlannerNode(Node):
         lines = msg.data.strip().split('\n')
         for line in lines:
             parts = line.strip().split(',')
-            if len(parts) != 4:
+            # Local map has 5 fields, global map has 4 fields
+            if len(parts) == 5:  # Local map format: x,y,z,color,confidence
+                x, y, z, colour, confidence = map(float, parts)
+            # global map
+            #elif len(parts) == 4:  # Global map format: x,y,z,color
+             #   x, y, z, colour = map(float, parts)
+            else:
                 continue
-            x, y, z, colour = map(float, parts)
             
             # 0 = blue (left), 1 = yellow (right), 2 = orange
             if int(colour) == 0:  # Blue cones (left side)
                 self.left_cones.append((x, y))
             elif int(colour) == 1:  # Yellow cones (right side)
                 self.right_cones.append((x, y))
+        
+        # Debug output
+        self.get_logger().info(f"Received {len(self.left_cones)} left cones, {len(self.right_cones)} right cones")
 
     def generate_centerline(self):
         """Generate centerline from left and right cones"""

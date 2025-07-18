@@ -4,6 +4,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         # Start cone mapper
+        # need the perception package
         Node(
             package='cone_mapper',
             executable='cone_mapper',
@@ -13,8 +14,8 @@ def generate_launch_description():
         
         # Start path planner
         Node(
-            package='path_planning',  # You'll need to create this package
-            executable='path_planner',
+            package='path_planning',  
+            executable='integration',
             name='path_planner_node',
             output='screen'
         ),
