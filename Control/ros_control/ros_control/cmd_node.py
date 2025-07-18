@@ -34,7 +34,7 @@ class MinimalPublisher(Node):
         self.as_state = 0
         self.ami_state = 0
         self.steering_angle_rad = 0
-        self.wheel_speeds = 0
+        self.wheels_rpm = 0
         
         self.static_A_flag = 0
         self.static_B_flag = 0
@@ -100,7 +100,7 @@ class MinimalPublisher(Node):
         rf = wheels.rf_speed
         # in RADIANS
         steering = wheels.steering
-        self.wheel_speeds = (lb+lf+rb+rf)/4
+        self.wheels_rpm = (lb+lf+rb+rf)/4
         self.steering_angle_rad = steering
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
@@ -202,7 +202,7 @@ class MinimalPublisher(Node):
                     msg.drive.acceleration = commands.acceleration 
                     msg.drive.steering_angle = commands.steering_angle
                 except Exception as e:
-                    if self.current_state.directional_velocity < 5.0 or self.wheel_speeds < 200:
+                    if self.current_state.directional_velocity < 5.0 or self.wheels_rpm < 200:
                         msg.drive.acceleration = 1.0 # make sure these are floats
                         msg.drive.steering_angle = 0.0
                 # msg.drive.steering_angle_velocity
@@ -233,14 +233,14 @@ class MinimalPublisher(Node):
                         self.static_A_flag = 3
                 #wheels to 200rpm
                 if self.static_A_flag == 3:
-                    if self.wheel_speeds < 200.0:
+                    if self.wheels_rpm < 200.0:
                         msg.drive.acceleration = 2.0
                     else:
                         self.static_A_flag = 4
                 #stop car
                 if self.static_A_flag == 4:
                     msg.drive.acceleration = -4.0
-                    if self.wheel_speeds == 0.0:
+                    if self.wheels_rpm == 0.0:
                         self.static_A_flag = 5
                 # set AS_FINISHED
                 if self.static_A_flag == 5 and not self.mission_complete:
@@ -252,7 +252,7 @@ class MinimalPublisher(Node):
         elif self.ami_state == 6: #static inspection B
             if self.as_state == 3:
                 if self.static_B_flag == 0:
-                    if self.wheel_speeds < 50.0:
+                    if self.wheels_rpm < 50.0:
                         msg.drive.acceleration = 20.0
                     else:
                         self.static_B_flag = 1
@@ -284,7 +284,7 @@ class MinimalPublisher(Node):
                 #stop within a furthur 10m
                 if self.autonomous_demo_flag == 4:
                     msg.drive.acceleration = -2.0
-                    if self.wheel_speeds == 0.0:
+                    if self.wheels_rpm == 0.0:
                         self.autonomous_demo_flag = 5
                         self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
                 #accellerate for a furthur 10m to at least 15kph
