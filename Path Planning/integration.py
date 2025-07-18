@@ -15,9 +15,9 @@ class PathPlannerNode(Node):
         self.centerline = []
         self.last_goal_idx = 0
 
-        # Subscribe to cone mapper output - updated by perception as CAR moves
+        # Subscribe to cone mapper output 
         self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
-        self.create_subscription(String, '/world_cones', self.world_cones_callback, 10)
+        self.create_subscription(String, '/cone_map/local', self.world_cones_callback, 10)  
 
         # Publisher for the planned path
         self.path_pub = self.create_publisher(Path, '/planned_path', 10)
@@ -37,16 +37,24 @@ class PathPlannerNode(Node):
         lines = msg.data.strip().split('\n')
         for line in lines:
             parts = line.strip().split(',')
-            if len(parts) != 4:
+            # Local map has 5 fields, global map has 4 fields
+            if len(parts) == 5:  # Local map format: x,y,z,color,confidence
+                x, y, z, colour, confidence = map(float, parts)
+            # global map
+            #elif len(parts) == 4:  # Global map format: x,y,z,color
+             #   x, y, z, colour = map(float, parts)
+            else:
                 continue
-            x, y, z, colour = map(float, parts)
             
             # 0 = blue (left), 1 = yellow (right), 2 = orange
             if int(colour) == 0:  # Blue cones (left side)
                 self.left_cones.append((x, y))
             elif int(colour) == 1:  # Yellow cones (right side)
                 self.right_cones.append((x, y))
-  
+        
+        # Debug output
+        self.get_logger().info(f"Received {len(self.left_cones)} left cones, {len(self.right_cones)} right cones")
+
     def generate_centerline(self):
         """Generate centerline from left and right cones"""
         if not self.left_cones or not self.right_cones:
@@ -69,7 +77,7 @@ class PathPlannerNode(Node):
                 center_y = (left_cone[1] + nearest_right[1]) / 2
                 self.centerline.append((center_x, center_y))
 
-    def get_next_local_goal(self, lookahead=2.0):
+    def get_next_local_goal(self, lookahead=1.0):
         cx, cy = self.current_pose
         for i in range(self.last_goal_idx, len(self.centerline)):
             pt = self.centerline[i]
@@ -79,10 +87,9 @@ class PathPlannerNode(Node):
                 return pt
         return self.centerline[-1] if self.centerline else (0, 0)
 
-    def get_current_obstacles(self, cone_radius=1.0):
+    def get_current_obstacles(self, cone_radius=0.5):
         return [(x, y, cone_radius) for (x, y) in self.left_cones + self.right_cones]
 
-    # give path to control
     def publish_path(self, path_points):
         path_msg = Path()
         path_msg.header = Header()
@@ -98,29 +105,28 @@ class PathPlannerNode(Node):
         self.path_pub.publish(path_msg)
 
     def main_loop(self):
-        # Runs until perception encounters the end cone
         try:
             if not self.left_cones or not self.right_cones:
                 self.get_logger().warn("Waiting for cone data...")
                 return
 
-            # Generate centerline from cones // not needed we can get from perception
+            # Generate centerline from cones
             self.generate_centerline()
             if not self.centerline:
                 self.get_logger().warn("No centerline generated")
                 return
 
             start = self.current_pose
-            goal = self.get_next_local_goal(lookahead=2.0)
+            goal = self.get_next_local_goal(lookahead=5.0)
             obstacles = self.get_current_obstacles()
             x_max, y_max = 500, 500
 
             # Run path planning
-            result = rrt_star(start, goal, obstacles, x_max, y_max, max_iter=200, max_step=2, goal_sample_rate=0.05)
+            result = rrt_star(start, goal, obstacles, x_max, y_max, max_iter=1000, max_step=1, goal_sample_rate=0.5)
             
             if result.status in [PathStatus.SUCCESS, PathStatus.PARTIAL]:
                 self.get_logger().info(f"Path found with {len(result.path)} points")
-                self.get_logger().info(f"Start: {start}, Goal: {goal}")
+                self.get_logger().info(f"{start}, {goal}")
                 self.publish_path(result.path)
             else:
                 self.get_logger().warn("No path found")
