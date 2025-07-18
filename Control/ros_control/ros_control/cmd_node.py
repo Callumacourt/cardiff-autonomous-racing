@@ -57,7 +57,7 @@ class MinimalPublisher(Node):
         self.odometry_sub = self.create_subscription(Odometry, "odometry/slam", self.odometry_callback, 10)
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
-        self.mpc_unit = Model_Predictive_Contol(self.timer_period)
+        self.mpc_unit = Model_Predictive_Contol(self.timer_period,5.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
         self.mission_complete = False
