@@ -37,7 +37,7 @@ class Model_Predictive_Contol():
 
         return states
 
-    def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped) -> float:
+    def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped,last:bool) -> float:
         cost = 0
         pose = pose_stamped.pose
 
@@ -54,7 +54,12 @@ class Model_Predictive_Contol():
 
         #penalize super sharp steering
         cost += 5 * state.yaw_rate
-
+        """
+        #massively punish movement if last node, this should ensure the car is always able to stop by the end of the path
+        if last:
+            if state.directional_velocity >0.05:
+                cost += 10000 * state.directional_velocity
+        """
         return cost
         
     def cost_function(self,initial_state:Vehicle_State,inputs:List[Vehicle_Input],required_path:Path) -> float:
@@ -74,7 +79,7 @@ class Model_Predictive_Contol():
         #calculate the cost for each and sum them
         total_cost = 0
         for i in range(0,self.horizon):
-            total_cost += self.stage_cost(state=states,input=inputs[i],point=required_path.poses[i])
+            total_cost += self.stage_cost(state=states,input=inputs[i],point=required_path.poses[i],last=True if i+1 == self.horizon else False)
 
         return total_cost
 

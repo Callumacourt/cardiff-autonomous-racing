@@ -24,6 +24,9 @@ class MinimalPublisher(Node):
 
     def __init__(self):
         super().__init__('ros_control')
+
+        #self.declare_parameter("eufs_simulate",value=False)
+
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
         self.publisher_df = self.create_publisher(std_msgs.msg.Bool, "state_machine/driving_flag", 10)
         self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_completed", 10)
@@ -90,7 +93,8 @@ class MinimalPublisher(Node):
     def can_state_callback(self, msg:CanState):
         self.ami_state = msg.ami_state
         self.as_state = msg.as_state
-        pass
+        self.get_logger().info(f'Recieved: AMI:{msg.ami_state}, AS:{msg.as_state}')
+
     def wheel_speeds_callback(self,msg:WheelSpeedsStamped):
         header = msg.header
         wheels = msg.speeds
@@ -103,6 +107,7 @@ class MinimalPublisher(Node):
         steering = wheels.steering
         self.wheels_rpm = (lb+lf+rb+rf)/4
         self.steering_angle_rad = steering
+        self.get_logger().info(f"Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
             y_pos=0.0, # ????
@@ -183,6 +188,9 @@ class MinimalPublisher(Node):
 
     #called periodically based on self.timer_period
     def timer_callback(self):
+        #simulate = self.get_parameter("eufs_simulate").get_parameter_value().bool_value
+        #self.get_logger().info(f"Simulate with eufs: {simulate}")
+        
         msg = ackermann_msgs.msg.AckermannDriveStamped()
         msg.header = std_msgs.msg.Header()
         msg.drive = ackermann_msgs.msg.AckermannDrive()
@@ -194,8 +202,12 @@ class MinimalPublisher(Node):
         # before sending them to the car
         # the ackermanndrive msg has more parameters than the car uses, we currently only need to worry about 
         # acceleration and steering angle
-        if self.ami_state == 1:#accelleration
-            if self.as_state == 3:# car is in AS_DRIVING
+
+
+        self.get_logger().info(f'cmd loop')
+        if self.ami_state == CanState.AMI_ACCELERATION:#accelleration #1
+            self.get_logger().info(f'Acceleration')
+            if self.as_state == CanState.AS_DRIVING:# car is in AS_DRIVING #3
                 # msg.drive.speed=10.0    
 
                 try:
@@ -204,18 +216,21 @@ class MinimalPublisher(Node):
                     msg.drive.steering_angle = commands.steering_angle
                 except Exception as e:
                     if self.current_state.directional_velocity < 5.0 or self.wheels_rpm < 200:
-                        msg.drive.acceleration = 1.0 # make sure these are floats
-                        msg.drive.steering_angle = 0.0
+                        pass
+                msg.drive.acceleration = 1.0 # make sure these are floats
+                msg.drive.steering_angle = 0.0
+                self.get_logger().info(f'created accelleration command')
                 # msg.drive.steering_angle_velocity
                 # msg.drive.jerk
                 self.publisher_.publish(msg)
+                self.get_logger().info(f'Publishing: "{msg.drive}"')
                 #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
             elif self.as_state == 2: # car is in AS_READY
                 msg.drive.acceleration = 0.0
                 msg.drive.steering_angle = 0.0
                 #msg.drive.steering_angle_velocity = 0
-        elif self.ami_state == 5: #static inspection A
-            if self.as_state == 3: #if driving (given go signal)
+        elif self.ami_state == CanState.AMI_DDT_INSPECTION_A: #static inspection A 
+            if self.as_state == CanState.AS_DRIVING: #if driving (given go signal)
                 msg.drive.acceleration = 0.0
                 #steer all the way one way
                 if self.static_A_flag == 0:
@@ -250,8 +265,8 @@ class MinimalPublisher(Node):
                     #self.get_logger().info("Mission complete published!")
                 
                 self.publisher_.publish(msg)     
-        elif self.ami_state == 6: #static inspection B
-            if self.as_state == 3:
+        elif self.ami_state == CanState.AMI_DDT_INSPECTION_B: #static inspection B
+            if self.as_state == CanState.AS_DRIVING:
                 if self.static_B_flag == 0:
                     if self.wheels_rpm < 50.0:
                         msg.drive.acceleration = 20.0
@@ -260,8 +275,8 @@ class MinimalPublisher(Node):
                     self.publisher_.publish(msg)
                 if self.static_B_flag == 1:
                     self.trigger_ebs()
-        elif self.ami_state == 7: #autonomous demo
-            if self.as_state == 3:
+        elif self.ami_state == CanState.AMI_AUTONOMOUS_DEMO: #autonomous demo
+            if self.as_state == CanState.AS_DRIVING:
                 #steering left and right and return to straight
                 if self.autonomous_demo_flag == 0:
                     msg.drive.steering_angle = 0.5
