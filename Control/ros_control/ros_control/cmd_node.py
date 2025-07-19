@@ -28,8 +28,11 @@ class MinimalPublisher(Node):
         #self.declare_parameter("eufs_simulate",value=False)
 
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
+        self.get_logger().info("cmd publisher started")
         self.publisher_df = self.create_publisher(std_msgs.msg.Bool, "state_machine/driving_flag", 10)
+        self.get_logger().info("state_machine/driving_flag publisher started")
         self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_completed", 10)
+        self.get_logger().info("ros_con/mission_complete publisher started")
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
@@ -48,23 +51,32 @@ class MinimalPublisher(Node):
 
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
+        self.get_logger().info("ros_can/state subscriber started")
         self.wheel_speeds_sub = self.create_subscription(WheelSpeedsStamped,"ros_can/wheel_speeds",self.wheel_speeds_callback,10)
+        self.get_logger().info("ros_can/wheel_speeds subscriber started")
         self.twist_sub = self.create_subscription(TwistWithCovarianceStamped,"ros_can/twist",self.twist_callback,10)
+        self.get_logger().info("ros_can/twist subscriber started")
         self.imu_sub = self.create_subscription(Imu,"ros_can/imu",self.imu_callback,10)
+        self.get_logger().info("ros_can/imu subscriber started")
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
+        self.get_logger().info("ros_can/fix (sat nav) subscriber started")
 
         #set up subscriber(s) to get data via path planning
         self.path = None
         self.path_sub = self.create_subscription(Path,"planned_path",self.path_callback,10)
+        self.get_logger().info("planned_path subscription started")
 
         #set up subscriber to get position from perception
         self.odometry_sub = self.create_subscription(Odometry, "odometry/slam", self.odometry_callback, 10)
+        self.get_logger().info("Odometry/slam subscription started")
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         self.mpc_unit = Model_Predictive_Contol(self.timer_period,5.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
         self.mission_complete = False
+
+        self.get_logger().info("Initialization complete")
 
     def set_time_at_event_start(self,time):
         if self.time_at_event_start == 0:
@@ -108,7 +120,7 @@ class MinimalPublisher(Node):
         self.wheels_rpm = (lb+lf+rb+rf)/4
         self.steering_angle_rad = steering
         #import pdb; pdb.set_trace()
-        self.get_logger().info(f"Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
+        self.get_logger().info(f"Recieved: Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
             y_pos=0.0, # ????
@@ -210,6 +222,7 @@ class MinimalPublisher(Node):
             self.get_logger().info(f'Acceleration')
             if self.as_state == CanState.AS_DRIVING:# car is in AS_DRIVING #3
                 # msg.drive.speed=10.0    
+                self.get_logger().info("AS_Driving")
 
                 try:
                     commands = self.mpc_unit.main(initial_state=self.current_state,required_path=self.path)#get required path from path planning, not sure where to get initial state from
@@ -232,30 +245,41 @@ class MinimalPublisher(Node):
                 #msg.drive.steering_angle_velocity = 0
         elif self.ami_state == CanState.AMI_DDT_INSPECTION_A: #static inspection A 
             if self.as_state == CanState.AS_DRIVING: #if driving (given go signal)
+                self.get_logger().info("AS_Driving")
+
                 msg.drive.acceleration = 0.0
                 #steer all the way one way
                 if self.static_A_flag == 0:
+                    self.get_logger().info("Sub task: Steer left")
+
                     msg.drive.steering_angle = 0.5
                     if self.steering_angle_rad >= 0.41:
                         self.static_A_flag = 1
                 #steer all the way in the opposite direction
                 if self.static_A_flag == 1:
+                    self.get_logger().info("Sub task: Steer right")
                     msg.drive.steering_angle = -0.5
                     if self.steering_angle_rad <=-0.41:
                         self.static_A_flag = 2
                 #steering back to centre
                 if self.static_A_flag == 2:
+                    self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
                     if self.steering_angle_rad == 0.0:
                         self.static_A_flag = 3
                 #wheels to 200rpm
                 if self.static_A_flag == 3:
+                    self.get_logger().info("Sub task: Accelerate to 200rpm")
+                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
                     if self.wheels_rpm < 200.0:
                         msg.drive.acceleration = 2.0
                     else:
                         self.static_A_flag = 4
                 #stop car
                 if self.static_A_flag == 4:
+                    self.get_logger().info("Sub task: Brake to zero")
+                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
+
                     msg.drive.acceleration = -4.0
                     if self.wheels_rpm == 0.0:
                         self.static_A_flag = 5
@@ -267,8 +291,12 @@ class MinimalPublisher(Node):
                 
                 self.publisher_.publish(msg)     
         elif self.ami_state == CanState.AMI_DDT_INSPECTION_B: #static inspection B
+            self.get_logger().info("inpection B")
             if self.as_state == CanState.AS_DRIVING:
+                self.get_logger().info("AS_Driving")
+
                 if self.static_B_flag == 0:
+                    self.get_logger().info("Sub task: accelerate to 50rpm")
                     if self.wheels_rpm < 50.0:
                         msg.drive.acceleration = 20.0
                     else:
@@ -278,28 +306,35 @@ class MinimalPublisher(Node):
                     self.trigger_ebs()
         elif self.ami_state == CanState.AMI_AUTONOMOUS_DEMO: #autonomous demo
             if self.as_state == CanState.AS_DRIVING:
+                self.get_logger().info("AS_Driving")
+
                 #steering left and right and return to straight
                 if self.autonomous_demo_flag == 0:
+                    self.get_logger().info("Sub task: steering left")
                     msg.drive.steering_angle = 0.5
                     if self.steering_angle_rad >= 0.41:
                         self.autonomous_demo_flag = 1
                 if self.autonomous_demo_flag == 1:
+                    self.get_logger().info("Sub task: steering right")
                     msg.drive.steering_angle = -0.5
                     if self.steering_angle_rad <= 0.41:
                         self.autonomous_demo_flag = 2
                 if self.autonomous_demo_flag == 2:
+                    self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
                     if self.steering_angle_rad == 0.0:
                         self.autonomous_demo_flag = 3
                 #accellerate for 10m to at least 15kph
                 if self.autonomous_demo_flag == 3:
                     self.set_time_at_event_start(self.i)
+                    self.get_logger().info("Sub task: accelleration for 10m")
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
                     if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
                         self.autonomous_demo_flag = 4
                 #stop within a furthur 10m
                 if self.autonomous_demo_flag == 4:
+                    self.get_logger().info("Sub task: break to stop")
                     msg.drive.acceleration = -2.0
                     if self.wheels_rpm == 0.0:
                         self.autonomous_demo_flag = 5
@@ -307,6 +342,7 @@ class MinimalPublisher(Node):
                 #accellerate for a furthur 10m to at least 15kph
                 if self.autonomous_demo_flag == 5:
                     self.set_time_at_event_start(self.i)
+                    self.get_logger().info("Sub task: Accelerate a further 10m")
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
                     if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
