@@ -21,7 +21,7 @@ class SimpleMockControlNode(Node):
         # Subscribe to path planning
         self.path_subscription = self.create_subscription(
             Path,
-            '/racing/path',
+            '/planned_path',
             self.path_callback,
             10
         )
@@ -39,7 +39,7 @@ class SimpleMockControlNode(Node):
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
         self.get_logger().info('🎮 Simple Mock Control Node initialized')
-        self.get_logger().info('📡 Subscribed to: /racing/path')
+        self.get_logger().info('📡 Subscribed to: /planned_path')
         self.get_logger().info('📤 Publishing: /racing/control/steering, /racing/control/throttle, /racing/control/status')
         
     def path_callback(self, msg):
