@@ -18,15 +18,13 @@ sudo apt install libeigen3-dev libpangolin-dev libopencv-dev
 ```
 Need to clone and build:
 
-- ORB-SLAM3
-
 - Pangolin
 
 Clone into workspace with:
 
 ```
-cd ~/ros2_ws
-git clone https://github.com/UZ-SLAMLab/ORB_SLAM3.git
+cd ~/your_workspace
+git clone this repository
 git clone https://github.com/stevenlovegrove/Pangolin.git
 ```
 
