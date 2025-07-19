@@ -25,7 +25,9 @@ class MinimalPublisher(Node):
     def __init__(self):
         super().__init__('ros_control')
 
-        #self.declare_parameter("eufs_simulate",value=False)
+        self.declare_parameter("eufs_simulate",value=False)
+        self.eufs_sim = self.get_parameter("eufs_simulate").get_parameter_value().bool_value
+        self.get_logger().info(f"using eufs sim: {self.eufs_sim}")
 
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
         self.get_logger().info("cmd publisher started")
@@ -119,6 +121,8 @@ class MinimalPublisher(Node):
         # in RADIANS
         steering = wheels.steering
         self.wheels_rpm = (lb+lf+rb+rf)/4
+        if self.eufs_sim:
+            self.wheels_rpm -= 500
         self.steering_angle_rad = steering
         #import pdb; pdb.set_trace()
         self.get_logger().info(f"Recieved: Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
@@ -202,6 +206,11 @@ class MinimalPublisher(Node):
             )
         self.mpc_unit.dynamics_model.set_state(state)
 
+    def reset_mission_progress(self):
+        self.static_A_flag = 0
+        self.static_B_flag = 0
+        self.autonomous_demo_flag = 0
+
     #called periodically based on self.timer_period
     def timer_callback(self):
         #simulate = self.get_parameter("eufs_simulate").get_parameter_value().bool_value
@@ -247,6 +256,7 @@ class MinimalPublisher(Node):
                 msg.drive.steering_angle = 0.0
                 #msg.drive.steering_angle_velocity = 0
         elif self.ami_state == CanState.AMI_DDT_INSPECTION_A: #static inspection A 
+            self.get_logger().info("Static inspection A")
             if self.as_state == CanState.AS_DRIVING: #if driving (given go signal)
                 self.get_logger().info("AS_Driving")
 
@@ -284,17 +294,18 @@ class MinimalPublisher(Node):
                     self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
 
                     msg.drive.acceleration = -4.0
-                    if self.wheels_rpm == 0.0:
+                    if self.wheels_rpm <= 0.1:
                         self.static_A_flag = 5
                 # set AS_FINISHED
                 if self.static_A_flag == 5 and not self.mission_complete:
                     #set mission complete
                     self.mission_complete = True
+                    self.static_A_flag = 0
                     #self.get_logger().info("Mission complete published!")
                 
                 self.publisher_.publish(msg)     
         elif self.ami_state == CanState.AMI_DDT_INSPECTION_B: #static inspection B
-            self.get_logger().info("inpection B")
+            self.get_logger().info("static inpection B")
             if self.as_state == CanState.AS_DRIVING:
                 self.get_logger().info("AS_Driving")
 
@@ -307,7 +318,9 @@ class MinimalPublisher(Node):
                     self.publisher_.publish(msg)
                 if self.static_B_flag == 1:
                     self.trigger_ebs()
+                    self.static_B_flag = 0
         elif self.ami_state == CanState.AMI_AUTONOMOUS_DEMO: #autonomous demo
+            self.get_logger().info("Autonomous demo")
             if self.as_state == CanState.AS_DRIVING:
                 self.get_logger().info("AS_Driving")
 
@@ -320,7 +333,7 @@ class MinimalPublisher(Node):
                 if self.autonomous_demo_flag == 1:
                     self.get_logger().info("Sub task: steering right")
                     msg.drive.steering_angle = -0.5
-                    if self.steering_angle_rad <= 0.41:
+                    if self.steering_angle_rad <= -0.41:
                         self.autonomous_demo_flag = 2
                 if self.autonomous_demo_flag == 2:
                     self.get_logger().info("Sub task: Steer centre")
@@ -328,7 +341,7 @@ class MinimalPublisher(Node):
                     if self.steering_angle_rad == 0.0:
                         self.autonomous_demo_flag = 3
                 #accellerate for 10m to at least 15kph
-                if self.autonomous_demo_flag == 3:
+                if self.autonomous_demo_flag == 3: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
                     self.set_time_at_event_start(self.i)
                     self.get_logger().info("Sub task: accelleration for 10m")
                     msg.drive.acceleration = 2.0
@@ -354,8 +367,11 @@ class MinimalPublisher(Node):
                 #deploy ebs
                 if self.autonomous_demo_flag == 6:
                     self.trigger_ebs()
+                    self.autonomous_demo_flag = 0
                 else:
                     self.publisher_.publish(msg)
+        #else:
+        #    self.reset_mission_progress()
 
         mission_msg = std_msgs.msg.Bool()
         mission_msg.data = self.mission_complete
