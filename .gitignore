@@ -12,3 +12,5 @@ Path Planning/inputs.txt
 
 # Mac OS
 .DS_Store
+
+Control/logs/*.log

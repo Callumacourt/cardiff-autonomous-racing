@@ -1,5 +1,4 @@
 from model.vehical_model import Vehicle_Input, Vehicle_State, Dynamics_Model
-import casadi
 import numpy as np
 from scipy.optimize import minimize
 from typing import List
