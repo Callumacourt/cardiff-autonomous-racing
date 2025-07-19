@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/msg', ['msg/DetectedCone3D.msg']),
+        ('share/' + package_name + '/models', ['models/best.pt']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

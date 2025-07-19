@@ -9,6 +9,9 @@ import message_filters  # Sync RGB + depth
 from std_msgs.msg import String
 import torch
 from ultralytics import YOLO  # YOLOv8
+import os
+from ament_index_python.packages import get_package_share_directory
+
 
 # --- Node Definition ---
 class YOLOConeDetector3D(Node):
@@ -20,7 +23,9 @@ class YOLOConeDetector3D(Node):
         self.device = self.setup_device()
         
         # Load YOLO model
-        model_path = 'best.pt'  # copied from yolo package
+        # Load YOLO model with proper path
+        package_dir = get_package_share_directory('cone_detector')
+        model_path = os.path.join(package_dir, 'models', 'best.pt')
         self.model = self.load_model(model_path)
         
         # Model parameters
