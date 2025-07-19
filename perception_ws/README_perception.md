@@ -54,7 +54,7 @@ ros2 launch eufs_tracks track.launch.py
 Launch cone detection node:
 
 ```
-ros2 run cone_detector cone_detector_node
+ros2 run cone_detector YOLO_cone_detector
 ```
 Launch SLAM:
 
