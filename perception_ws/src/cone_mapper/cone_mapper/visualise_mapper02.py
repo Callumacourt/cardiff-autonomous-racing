@@ -256,7 +256,7 @@ def create_realtime_plot():
         # Plot track boundaries
         if data['track_boundaries']:
             boundary_array = np.array(data['track_boundaries'])
-            ax.plot(boundary_array[:, 0], boundary_array[:, 1], 'k-', 
+            ax.plot(boundary_array[:, 0], boundary_array[:, 1], 'm-', 
                    linewidth=4, label='Track Boundary', alpha=0.8)
         
         # Plot centerline
