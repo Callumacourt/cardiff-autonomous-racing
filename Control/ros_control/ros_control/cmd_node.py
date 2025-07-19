@@ -42,6 +42,7 @@ class MinimalPublisher(Node):
         self.ami_state = 0#autonomous mission indicator state
         self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
         self.wheels_rpm = 0#current average rpm of all 4 wheels
+        self.WHEEL_RADIUS = 0.253
         
         self.static_A_flag = 0#flag that indicates the progress through the static inspection A mission
         self.static_B_flag = 0#flag that indicates the progress through the static inspection B mission
@@ -135,9 +136,10 @@ class MinimalPublisher(Node):
         twist_with_covariance = msg.twist
         twist = twist_with_covariance.twist
         covariance = twist_with_covariance.covariance
-        pass
+        self.get_logger().info(f"Recieved: twist: {twist}")
     def imu_callback(self,msg:Imu):
         try:
+
             header = msg.header
             angular_velocity = msg.angular_velocity
             av_with_covariance = msg.angular_velocity_covariance
@@ -145,6 +147,7 @@ class MinimalPublisher(Node):
             la_with_covariance = msg.linear_acceleration_covariance
             orientation = msg.orientation
             orientation_covariance = msg.orientation_covariance
+            self.get_logger().info(f"Recieved IMU msg: a_vel: {angular_velocity}, l_accel: {linear_acceleration}, orientation: {orientation} ")
         except:
             print("error in Imu msg")
     def nav_callback(self,msg:NavSatFix):
