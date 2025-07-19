@@ -1,4 +1,5 @@
-from rrt_star import rrt_star, PathStatus
+import rrt_star
+from rrt_star import PathStatus
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Point
@@ -87,7 +88,7 @@ class PathPlannerNode(Node):
                 return pt
         return self.centerline[-1] if self.centerline else (0, 0)
 
-    def get_current_obstacles(self, cone_radius=0.5):
+    def get_current_obstacles(self, cone_radius=0.3):
         return [(x, y, cone_radius) for (x, y) in self.left_cones + self.right_cones]
 
     def publish_path(self, path_points):
@@ -119,17 +120,36 @@ class PathPlannerNode(Node):
             start = self.current_pose
             goal = self.get_next_local_goal(lookahead=5.0)
             obstacles = self.get_current_obstacles()
-            x_max, y_max = 500, 500
+            x_max, y_max = 20, 20  # Reduce search space
+
+            # Debug output
+            self.get_logger().info(f"Planning: start={start}, goal={goal}, obstacles={len(obstacles)}")
+            self.get_logger().info(f"Centerline points: {len(self.centerline)}")
+            self.get_logger().info(f"Left cones: {self.left_cones}")
+            self.get_logger().info(f"Right cones: {self.right_cones}")
+            self.get_logger().info(f"Centerline: {self.centerline}")
+            for i, obs in enumerate(obstacles):
+                self.get_logger().info(f"Obstacle {i}: x={obs[0]:.2f}, y={obs[1]:.2f}, radius={obs[2]:.2f}")
 
             # Run path planning
-            result = rrt_star(start, goal, obstacles, x_max, y_max, max_iter=1000, max_step=1, goal_sample_rate=0.5)
+            # Try to plan a path - reduced tolerance for narrow corridor
+            result = rrt_star.rrt_star(
+                start=(0.0, 0.0),
+                goal=goal,
+                obstacles=obstacles,
+                x_max=20,
+                y_max=20,
+                max_iter=500,
+                max_step=1.5,
+                goal_sample_rate=0.3,
+                radius=3.0
+            )
             
             if result.status in [PathStatus.SUCCESS, PathStatus.PARTIAL]:
                 self.get_logger().info(f"Path found with {len(result.path)} points")
-                self.get_logger().info(f"{start}, {goal}")
                 self.publish_path(result.path)
             else:
-                self.get_logger().warn("No path found")
+                self.get_logger().warn(f"No path found. Status: {result.status}")
 
         except Exception as e:
             self.get_logger().error(f"Exception in main_loop: {e}")

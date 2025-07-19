@@ -74,11 +74,60 @@ pip install --no-cache-dir --force-reinstall pillow
 pip install pygame
 ```
 
-When starting the project, **run dummyInputs.py** to generate a basic 3D-array in the **inputs.txt file**.
-This array represents a racetrack that has a basic curve - this data is formatted:
- **Index	Close Left (x,y,z)	Close Right (x,y,z)	Far Left (x,y,z)	Far Right (x,y,z)** 
+## Running The Program
 
-This will then allow you to run the main.py file which will generate the path and display it in a GUI.
+To run integration.py which is the main file that runs the path planning and perception.
+
+1. Ensure ROS 2 is installed and sourced.
+```
+source /opt/ros/humble/setup.bash
+```
+
+2. Manually Publish Test Data (Only required to do if Perception section is broken)
+```
+ros2 topic pub /car_pose geometry_msgs/PoseStamped '{header: {frame_id: "map"}, pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}'
+ros2 topic pub /cone_map/local std_msgs/String "data: '5.0,2.0,0.0,0,0.9\n10.0,2.5,0.0,1,0.8'"
+```
+
+3. Build Perception Section (If available)
+```
+cd /home/user/cardiff-autonomous-racing/perception_ws
+colcon build
+```
+
+4. Source Section after building
+```
+source install/setup.bash
+```
+
+5. Run Perception Section
+```
+ros2 run cone_mapper cone_mapper
+ros2 launch slam_example slam_example.launch.py
+ros2 run cone_detector cone_detector_node
+```
+
+3. Run a Publisher Node
+```
+python3 test_cone_publisher.py
+```
+
+4. Verify ROS Topics
+```
+ros2 topic list
+ros2 topic echo /car_pose
+ros2 topic echo /cone_map/local
+```
+
+5. Navigate to the workspace
+```
+cd /home/user/cardiff-autonomous-racing/Path\ Planning
+```
+
+6. Run the script
+```
+python3 integration.py
+```
 
 ## Visuals
 

@@ -196,7 +196,7 @@ def rewire(new_node: Node, nearby_nodes: List[Node], obstacles: List[Tuple[float
 
             # Check if the path between new_node and neighbor is collision-free
             midpoint = Node((new_node.x + neighbor.x) / 2, (new_node.y + neighbor.y) / 2)
-            if not is_collision_free(midpoint, obstacles, parent=new_node, tolerance = 2):
+            if not is_collision_free(midpoint, obstacles, parent=new_node, tolerance = 0.3):
                 continue
 
             # Calculate potential new cost
@@ -272,7 +272,7 @@ def rrt_star(start: Tuple[float, float], goal: Tuple[float, float],
                 nearest = nearest_node(tree, rand_node)
                 new_node = steer(nearest, rand_node, max_step)
 
-                if is_collision_free(new_node, obstacles, parent=nearest, tolerance=2):
+                if is_collision_free(new_node, obstacles, parent=nearest, tolerance=0.3):
                     nearby_nodes = find_neighbours(tree, new_node, min_radius=radius)
                     new_node = choose_parent(new_node, nearby_nodes) or new_node
                     tree.append(new_node)
@@ -310,41 +310,82 @@ def rrt_star(start: Tuple[float, float], goal: Tuple[float, float],
 # New plot result function for visualisations
 def plot(path: Optional[List[Tuple[float, float]]], obstacles: List[Tuple[float, float, float]],
          start: Tuple[float, float], goal: Tuple[float, float], tree: Optional[List[Node]] = None,
-         x_max: float = 100, y_max: float = 100) -> None:
+         x_max: float = 100, y_max: float = 100, show_tree: bool = True, 
+         cone_data: Optional[dict] = None) -> None:
+    """
+    Enhanced plot function with support for cone visualization
+    
+    Args:
+        cone_data: Dictionary with keys 'left_cones', 'right_cones', 'centerline' 
+                  containing lists of (x, y) tuples
+    """
     try:
-        plt.figure(figsize=(10, 8))
+        plt.figure(figsize=(12, 8))
         
-        # Set the plot limits
-        plt.xlim(0, x_max)
-        plt.ylim(0, y_max)
+        # Set the plot limits with some padding
+        plt.xlim(-5, x_max + 5)
+        plt.ylim(-20, y_max + 5)
         
         # Plot obstacles
-        for ox, oy, radius in obstacles:
+        for i, (ox, oy, radius) in enumerate(obstacles):
             circle = plt.Circle((ox, oy), radius, color='red', alpha=0.5)
             plt.gca().add_patch(circle)
+            if i == 0:  # Add label only for first obstacle
+                circle.set_label('Obstacles')
         
-        # Plot the tree if provided
-        if tree:
+        # Plot cone data if provided
+        if cone_data:
+            if 'left_cones' in cone_data and cone_data['left_cones']:
+                left_x = [cone[0] for cone in cone_data['left_cones']]
+                left_y = [cone[1] for cone in cone_data['left_cones']]
+                plt.scatter(left_x, left_y, c='blue', marker='s', s=60, 
+                           alpha=0.8, label='Left Cones', edgecolors='darkblue')
+            
+            if 'right_cones' in cone_data and cone_data['right_cones']:
+                right_x = [cone[0] for cone in cone_data['right_cones']]
+                right_y = [cone[1] for cone in cone_data['right_cones']]
+                plt.scatter(right_x, right_y, c='orange', marker='s', s=60, 
+                           alpha=0.8, label='Right Cones', edgecolors='darkorange')
+            
+            if 'centerline' in cone_data and cone_data['centerline']:
+                center_x = [point[0] for point in cone_data['centerline']]
+                center_y = [point[1] for point in cone_data['centerline']]
+                plt.plot(center_x, center_y, '--', color='gray', linewidth=2, 
+                        alpha=0.7, label='Centerline')
+        
+        # Plot the tree if provided and requested
+        if tree and show_tree:
+            tree_plotted = False
             for node in tree:
                 if node.parent:
-                    plt.plot([node.x, node.parent.x], [node.y, node.parent.y], 'c-', alpha=0.5, label='Tree' if node == tree[1] else "")
+                    plt.plot([node.x, node.parent.x], [node.y, node.parent.y], 
+                            'c-', alpha=0.3, linewidth=0.5)
+                    if not tree_plotted:
+                        plt.plot([node.x, node.parent.x], [node.y, node.parent.y], 
+                                'c-', alpha=0.3, linewidth=0.5, label='RRT* Tree')
+                        tree_plotted = True
         
         # Plot the path if found
         if path:
-            plt.plot([x for x, y in path], [y for x, y in path], '-g', linewidth=2, label='Path')
-            plt.scatter([x for x, y in path], [y for x, y in path], c='green', marker='o', s=20, label='Path Nodes')
+            plt.plot([x for x, y in path], [y for x, y in path], '-g', linewidth=3, label='Planned Path')
+            plt.scatter([x for x, y in path], [y for x, y in path], c='green', marker='o', s=30, alpha=0.8)
         else:
             plt.title("No path found")
         
         # Plot start and goal
-        plt.scatter(start[0], start[1], c='blue', marker='o', s=100, label='Start')
-        plt.scatter(goal[0], goal[1], c='purple', marker='*', s=150, label='Goal')
+        plt.scatter(start[0], start[1], c='blue', marker='o', s=150, label='Start', 
+                   edgecolors='darkblue', linewidth=2)
+        plt.scatter(goal[0], goal[1], c='purple', marker='*', s=200, label='Goal',
+                   edgecolors='darkred', linewidth=2)
         
         # Add grid, legend, and show the plot
-        plt.grid(True)
-        plt.legend()
-        plt.title("RRT* Path Planning")
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.title("RRT* Path Planning with Perception Data")
+        plt.xlabel('X Position (m)')
+        plt.ylabel('Y Position (m)')
         plt.axis('equal')
+        plt.tight_layout()
         plt.show()
     except Exception as e:
         logging.error(f"Error plotting results: {str(e)}")
