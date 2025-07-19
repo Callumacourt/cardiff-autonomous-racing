@@ -59,13 +59,16 @@ ros2 run cone_detector cone_detector_node
 Launch SLAM:
 
 ```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/ros2_ws/ORB_SLAM3_mask/lib
 ros2 launch slam_example slam_example.launch.py
+
 ```
 
 Launch cone mapping node:
 
 ```
-ros2 run cone_mapper cone_mapper
-python 3 visualise_world_cones.py
+ros2 run cone_mapper cone_mapper_v6.py
+
+python3 src/cone_mapper/cone_mapper/visualise_mapper02.py
 
 ```
