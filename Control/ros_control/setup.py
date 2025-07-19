@@ -24,6 +24,7 @@ setup(
             "driving_flag_pub = ros_control.driving_flag_pub:main",
             "mission_flag_pub = ros_control.mission_flag_pub:main",
             "model_predictive_control = ros_control.model_predictive_control:main",
+            "mock_control = ros_control.mock_control:main",
         ],
     },
 )

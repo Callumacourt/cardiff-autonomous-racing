@@ -1,0 +1,58 @@
+# Control module Dockerfile
+FROM cardiff-racing:base
+
+# Install additional dependencies for control system
+RUN apt-get update && apt-get install -y \
+    python3-numpy \
+    python3-scipy \
+    python3-matplotlib \
+    build-essential \
+    cmake \
+    ros-humble-ackermann-msgs \
+    ros-humble-geometry-msgs \
+    ros-humble-std-msgs \
+    ros-humble-sensor-msgs \
+    ros-humble-std-srvs \
+    ros-humble-tf2 \
+    ros-humble-tf2-ros \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for control algorithms
+RUN pip3 install \
+    numpy \
+    scipy \
+    matplotlib \
+    control
+
+# Set up workspace
+WORKDIR /workspace
+RUN mkdir -p /workspace/control_ws/src
+
+# Copy Control modules (both ros_control and ros_can) and eufs_msgs
+COPY Control/ros_control/ /workspace/control_ws/src/ros_control/
+COPY Control/ros_can/ /workspace/control_ws/src/ros_can/
+COPY Control/eufs_msgs/ /workspace/control_ws/src/eufs_msgs/
+
+# Create package structure for ros_control
+RUN mkdir -p /workspace/control_ws/src/ros_control/ros_control && \
+    touch /workspace/control_ws/src/ros_control/ros_control/__init__.py
+
+# Build control workspace (try both packages, fallback to ros_control only)
+WORKDIR /workspace/control_ws
+RUN . /opt/ros/humble/setup.sh && \
+    (echo "🔧 Building eufs_msgs first..." && \
+     colcon build --symlink-install --packages-select eufs_msgs && \
+     echo "✅ eufs_msgs built successfully" && \
+     . install/setup.bash && \
+     echo "🔧 Building complete workspace..." && \
+     colcon build --symlink-install) || \
+    (echo "⚠️ Full build failed, trying ros_control only..." && \
+     colcon build --symlink-install --packages-select ros_control)
+
+# Copy entrypoint
+COPY docker/entrypoint_control.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /workspace
+
+ENTRYPOINT ["/entrypoint.sh"]
