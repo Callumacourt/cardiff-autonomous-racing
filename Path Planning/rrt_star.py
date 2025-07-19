@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 logging.basicConfig(level=logging.INFO)
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')  # Use headless backend for Docker containers
 
 
 # TODO: Implement Exception Handling

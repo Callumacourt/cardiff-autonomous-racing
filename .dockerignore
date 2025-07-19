@@ -1,0 +1,15 @@
+# File: .dockerignore
+.git
+.gitignore
+*.md
+logs/
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+venv/
+env/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

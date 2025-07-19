@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rrt_star import rrt_star, PathStatus
 import rclpy
 from rclpy.node import Node
