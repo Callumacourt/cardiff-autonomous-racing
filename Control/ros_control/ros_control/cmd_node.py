@@ -107,6 +107,7 @@ class MinimalPublisher(Node):
         steering = wheels.steering
         self.wheels_rpm = (lb+lf+rb+rf)/4
         self.steering_angle_rad = steering
+        #import pdb; pdb.set_trace()
         self.get_logger().info(f"Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
