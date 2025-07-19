@@ -1,0 +1,70 @@
+# File: docker-compose.yml
+version: '3.8'
+
+services:
+  # Mock data for testing
+  mock_data:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.planning
+    container_name: racing_mock
+    environment:
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - ./test_data:/workspace/test_data
+    networks:
+      - racing_network
+    command: >
+      bash -c "
+      echo '🚀 Starting mock data publishers...' &&
+      python3 /workspace/test_data/test_cone_published.py &
+      python3 /workspace/test_data/mock_pose_publisher.py &
+      wait
+      "
+
+  # Perception system
+  perception:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.perception
+    container_name: racing_perception
+    environment:
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - ./logs:/workspace/logs
+    networks:
+      - racing_network
+    command: >
+      bash -c "
+      echo '🎯 Starting perception system...' &&
+      ros2 run cone_mapper cone_mapper_v6
+      "
+
+  # Path planning
+  path_planning:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.planning
+    container_name: racing_planning
+    depends_on:
+      - perception
+    environment:
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - ./logs:/workspace/logs
+    networks:
+      - racing_network
+    command: >
+      bash -c "
+      echo '🛣️ Starting path planning...' &&
+      source /opt/ros/humble/setup.bash &&
+      source /workspace/planning_ws/install/setup.bash &&
+      /workspace/planning_ws/install/path_planning/bin/path_planner
+      "
+
+networks:
+  racing_network:
+    driver: bridge
+
+volumes:
+  logs:

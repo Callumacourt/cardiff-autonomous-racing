@@ -1,0 +1,37 @@
+# File: docker/Dockerfile.perception
+FROM cardiff-racing:base
+
+# Install additional dependencies for perception
+RUN apt-get update && apt-get install -y \
+    python3-cv-bridge \
+    ros-humble-cv-bridge \
+    ros-humble-sensor-msgs \
+    ros-humble-std-msgs \
+    ros-humble-nav-msgs \
+    ros-humble-geometry-msgs \
+    ros-humble-message-filters \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install basic Python packages (skip ultralytics for now due to large size)
+RUN pip3 install opencv-python
+
+# Copy only the Python packages (exclude slam_example)
+COPY perception_ws/src/cone_detector/ /workspace/perception_ws/src/cone_detector/
+COPY perception_ws/src/cone_mapper/ /workspace/perception_ws/src/cone_mapper/
+
+# Create resource directories if they don't exist
+RUN mkdir -p /workspace/perception_ws/src/cone_detector/resource && \
+    touch /workspace/perception_ws/src/cone_detector/resource/cone_detector
+RUN mkdir -p /workspace/perception_ws/src/cone_mapper/resource && \
+    touch /workspace/perception_ws/src/cone_mapper/resource/cone_mapper
+
+# Build perception workspace
+WORKDIR /workspace/perception_ws
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build --symlink-install --packages-select cone_detector cone_mapper
+
+# Copy entrypoint
+COPY docker/entrypoint_perception.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

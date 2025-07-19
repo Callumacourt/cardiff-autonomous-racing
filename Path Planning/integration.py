@@ -1,4 +1,7 @@
-from rrt_star import rrt_star, plot, PathStatus
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from rrt_star import rrt_star, PathStatus, plot
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Point
@@ -129,8 +132,7 @@ class PathPlannerNode(Node):
                 self.get_logger().info(f"{start}, {goal}")
                 self.publish_path(result.path)
                 plot(result.path, obstacles, start, goal, tree=result.tree, x_max=x_max, y_max=y_max)
-                self.current_pose = self.goal
-                self.get_logger().info(f"{start}")
+                self.get_logger().info(f"Current pose: {start}")
             else:
                 self.get_logger().warn("No path found")
 
