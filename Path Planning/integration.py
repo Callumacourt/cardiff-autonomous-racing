@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rrt_star import rrt_star, PathStatus
+from rrt_star import rrt_star, PathStatus, plot
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Point
@@ -13,8 +13,8 @@ class PathPlannerNode(Node):
         super().__init__('path_planner')
         # Current CAR coordinates - updates due to pose callback
         self.current_pose = (0.0, 0.0)
-        self.left_cones = []  # [x, y]
-        self.right_cones = [] 
+        self.left_cones = [(2.0, 2.0), (4.0, 2.0), (6.0, 2.0), (8.0, 2.0), (10.0, 2.0), (12.0, 2.0), (14.0, 2.0)]  # [x, y]
+        self.right_cones = [(2.0, -3.0), (4.0, -3.0), (6.0, -3.0), (8.0, -3.0), (10.0, -3.0), (12.0, -3.0), (14.0, -3.0)] 
         self.centerline = []
         self.last_goal_idx = 0
 
@@ -131,6 +131,8 @@ class PathPlannerNode(Node):
                 self.get_logger().info(f"Path found with {len(result.path)} points")
                 self.get_logger().info(f"{start}, {goal}")
                 self.publish_path(result.path)
+                plot(result.path, obstacles, start, goal, tree=result.tree, x_max=x_max, y_max=y_max)
+                self.get_logger().info(f"Current pose: {start}")
             else:
                 self.get_logger().warn("No path found")
 
@@ -138,7 +140,7 @@ class PathPlannerNode(Node):
             self.get_logger().error(f"Exception in main_loop: {e}")
 
 def main(args=None):
-    rclpy.init(args=args)
+    rclpy.init(args=args) 
     node = PathPlannerNode()
     rclpy.spin(node)
 
