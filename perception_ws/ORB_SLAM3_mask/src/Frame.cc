@@ -122,8 +122,8 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
 #endif
     // Load masks
-    static cv::Mat maskLeft = cv::imread("/home/ritvik/ros2_ws/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
-    static cv::Mat maskRight = cv::imread("/home/ritvik/ros2_ws/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    static cv::Mat maskLeft = cv::imread("../masks/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    static cv::Mat maskRight = cv::imread("../masks/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
     // DEBUG OUTPUT:
     std::cout << "MASK DEBUG:" << std::endl;
     std::cout << "Left mask loaded: " << !maskLeft.empty() << " Size: " << maskLeft.size() << std::endl;
@@ -440,9 +440,9 @@ void Frame::AssignFeaturesToGrid()
 
 void Frame::ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1)
 {
-    // Load mask (add this at the top)
-    static cv::Mat maskLeft = cv::imread("/home/ritvik/ros2_ws/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
-    static cv::Mat maskRight = cv::imread("/home/ritvik/ros2_ws/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    // Load mask
+    static cv::Mat maskLeft = cv::imread("../masks/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    static cv::Mat maskRight = cv::imread("../masks/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
     
     vector<int> vLapping = {x0,x1};
     
@@ -1140,8 +1140,8 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
 #endif
-    static cv::Mat maskLeft = cv::imread("/home/ritvik/ros2_ws/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
-    static cv::Mat maskRight = cv::imread("/home/ritvik/ros2_ws/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    static cv::Mat maskLeft = cv::imread("../masks/left_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
+    static cv::Mat maskRight = cv::imread("../masks/right_camera_car_masked.png", cv::IMREAD_GRAYSCALE);
     // DEBUG OUTPUT:
     std::cout << "MASK DEBUG:" << std::endl;
     std::cout << "Left mask loaded: " << !maskLeft.empty() << " Size: " << maskLeft.size() << std::endl;

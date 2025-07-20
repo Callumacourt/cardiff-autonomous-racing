@@ -8,7 +8,7 @@ import numpy as np
 import message_filters  # Sync RGB + depth
 from std_msgs.msg import String
 import torch
-from ultralytics import YOLO  # YOLOv8
+from ultralytics import YOLO 
 import os
 from ament_index_python.packages import get_package_share_directory
 
@@ -22,8 +22,7 @@ class YOLOConeDetector3D(Node):
         # Device detection and setup
         self.device = self.setup_device()
         
-        # Load YOLO model
-        # Load YOLO model with proper path
+        # Load YOLO model - path to workspace
         package_dir = get_package_share_directory('cone_detector')
         model_path = os.path.join(package_dir, 'models', 'best.pt')
         self.model = self.load_model(model_path)
@@ -33,8 +32,8 @@ class YOLOConeDetector3D(Node):
         self.iou_threshold = 0.45  # IoU threshold for NMS
         self.max_detection_distance = 20.0  # Maximum detection distance in meters
         
-        # Image masking parameters (remove upper third of image)
-        self.mask_upper_fraction = 0.4  # Mask upper 33% of image
+        # Image masking parameters 
+        self.mask_upper_fraction = 0.4  # Mask upper region of image
         
         # Subscribe to RGB + depth images
         self.rgb_sub = message_filters.Subscriber(self, Image, '/zed/left/image_rect_color')
@@ -54,7 +53,7 @@ class YOLOConeDetector3D(Node):
     def setup_device(self):
         """Setup computing device with comprehensive GPU detection"""
         try:
-            # Check if CUDA is available
+            # Check if CUDA available
             if torch.cuda.is_available():
                 device_count = torch.cuda.device_count()
                 device_name = torch.cuda.get_device_name(0)
@@ -68,7 +67,7 @@ class YOLOConeDetector3D(Node):
                 
                 # Test GPU functionality
                 test_tensor = torch.randn(10, 10).to(device)
-                _ = test_tensor @ test_tensor.T  # Simple matrix multiplication test
+                _ = test_tensor @ test_tensor.T  # Matrix multiplication test
                 
                 self.get_logger().info("GPU functionality test passed - using GPU")
                 return device
@@ -79,7 +78,7 @@ class YOLOConeDetector3D(Node):
         except Exception as e:
             self.get_logger().error(f"GPU setup failed: {e}")
         
-        # Fallback to CPU
+        # Fallback CPU
         self.get_logger().info("Falling back to CPU")
         return torch.device('cpu')
     
@@ -99,12 +98,12 @@ class YOLOConeDetector3D(Node):
             self.get_logger().info(f"Model loaded successfully")
             self.get_logger().info(f"Model device: {next(model.model.parameters()).device}")
             
-            # Print class names for debugging
+            # Class names for debugging
             if hasattr(model.model, 'names'):
                 class_names = model.model.names
                 self.get_logger().info(f"Model classes: {class_names}")
                 
-                # Print the corrected mapping
+                # Print class mapping
                 self.get_logger().info("Class mapping being used:")
                 for class_id, name in class_names.items():
                     color, label = self.get_cone_color_from_class(class_id, model)
@@ -133,7 +132,7 @@ class YOLOConeDetector3D(Node):
     def run_yolo_inference(self, image):
         """Run YOLO inference on the input image"""
         try:
-            # YOLOv8 inference with device specification
+            # Inference with device specification
             results = self.model(image, conf=self.conf_threshold, iou=self.iou_threshold, device=self.device)
             return results[0]  # First (and only) result
             
@@ -196,7 +195,7 @@ class YOLOConeDetector3D(Node):
         
         result = class_mapping.get(class_id, ("unknown", -1))
         
-        # Debug logging (only if model is available)
+        # Debug logging (only if model available)
         if model and hasattr(model.model, 'names'):
             model_class_name = model.model.names.get(class_id, 'unknown')
             if hasattr(self, 'frame_count') and self.frame_count % 100 == 0:  # Log less frequently

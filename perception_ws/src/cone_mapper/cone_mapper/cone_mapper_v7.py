@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Improved Cone Mapper with CORRECT coordinate transformation
+Cone Mapper with coordinate transformation
 """
 
 import rclpy
