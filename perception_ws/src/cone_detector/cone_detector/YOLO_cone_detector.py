@@ -28,9 +28,9 @@ class YOLOConeDetector3D(Node):
         self.model = self.load_model(model_path)
         
         # Model parameters
-        self.conf_threshold = 0.5  # Confidence threshold
+        self.conf_threshold = 0.4  # Confidence threshold
         self.iou_threshold = 0.45  # IoU threshold for NMS
-        self.max_detection_distance = 20.0  # Maximum detection distance in meters
+        self.max_detection_distance = 30.0  # Maximum detection distance in meters
         
         # Image masking parameters 
         self.mask_upper_fraction = 0.4  # Mask upper region of image

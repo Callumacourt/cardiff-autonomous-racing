@@ -27,7 +27,7 @@ ORANGE_CONE = 2
 class PersistentGlobalMap:
     """Persistent global cone map with adjusted thresholds"""
     
-    def __init__(self, confidence_threshold=0.7, min_detections=2):  # Balanced thresholds
+    def __init__(self, confidence_threshold=0.7, min_detections=3):  # Balanced thresholds
         self.global_cones = []
         self.confidence_threshold = confidence_threshold
         self.min_detections = min_detections
@@ -42,7 +42,7 @@ class PersistentGlobalMap:
             for existing in self.global_cones:
                 if (existing['color'] == cone_data['color'] and
                     np.linalg.norm([existing['x'] - cone_data['x'], 
-                                   existing['y'] - cone_data['y']]) < 2):  # Slightly larger tolerance
+                                   existing['y'] - cone_data['y']]) < 1.5):  # Slightly larger tolerance
                     return False  # Already exists
             
             # Add to global map
@@ -64,7 +64,7 @@ class PersistentGlobalMap:
     def get_global_map(self):
         return self.global_cones.copy()
     
-    def get_local_view(self, vehicle_pos, radius=20.0):
+    def get_local_view(self, vehicle_pos, radius=30.0):
         veh_x, veh_y = vehicle_pos
         local_cones = []
         
@@ -92,7 +92,7 @@ class PersistentGlobalMap:
         }
 
 class LocalConeBuffer:
-    """Sliding window buffer with improved parameters"""
+    """Sliding window buffer with parameters"""
     
     def __init__(self, max_size=200, max_age=6.0):
         self.cones = []
@@ -117,13 +117,13 @@ class LocalConeBuffer:
             cone['y'] = 0.3 * y + 0.7 * cone['y']
             cone['z'] = 0.3 * z + 0.7 * cone['z']
             
-            # Distance-based confidence gain
+            # Distance-based confidence gain - closer cones gain more confidence
             confidence_gain = 0.2 if distance < 5.0 else 0.15 if distance < 10.0 else 0.1
             cone['confidence'] = min(1.0, cone['confidence'] + confidence_gain)
             cone['detections'] += 1
             cone['last_seen'] = current_time
         else:
-            # Add new cone with distance-based initial confidence
+            # Add new cone with distance based initial confidence
             if distance < 3.0:
                 initial_conf = 0.6
             elif distance < 8.0:
@@ -143,7 +143,7 @@ class LocalConeBuffer:
     
     '''
     def update_frame(self):
-        """Update confidence and prune old/low-confidence cones"""
+        """Update confidence and prune old/low-confidence cones based on age"""
         current_time = time.time()
         
         # Decay confidence for unseen cones
@@ -173,14 +173,14 @@ class LocalConeBuffer:
         relative_x = cone['x'] - veh_x  # Forward/backward relative to car
         relative_y = cone['y'] - veh_y  # Left/right relative to car
     
-        return (-5 < relative_x < 20) and (abs(relative_y) < 2)
+        return (-5 < relative_x < 20) and (abs(relative_y) < 10)
 
         
     
     def get_all_cones(self):
         return self.cones.copy()
     
-    def get_high_confidence_cones(self, threshold=0.6):  # Lowered threshold
+    def get_high_confidence_cones(self, threshold=0.6):  # Low threshold
         return [cone for cone in self.cones if cone['confidence'] > threshold]
     
     def _find_matching_cone(self, x, y, color, radius=2.0):  # Increased radius
@@ -201,16 +201,16 @@ class LocalConeBuffer:
         
         return None
 
-class ImprovedConeMapperNode(Node):
-    """Improved cone mapper with coordinate transformation"""
+class ConeMapperNode(Node):
+    """Cone mapper - maps detected cones from camera frame to global frame"""
     
     def __init__(self):
-        super().__init__('improved_cone_mapper')
+        super().__init__('cone_mapper')
         
-        # Initialize mapping components with better parameters
+        # Initialise mapping components 
         self.global_map = PersistentGlobalMap(
-            confidence_threshold=0.8,  # Balanced
-            min_detections=3          # Reasonable requirement
+            confidence_threshold=0.8,  # Higher equals stricter position requirements
+            min_detections=3          # Number of frames a cone is in
         )
         self.local_buffer = LocalConeBuffer()
         
@@ -244,7 +244,7 @@ class ImprovedConeMapperNode(Node):
             'coordinate_warnings': 0
         }
         
-        self.get_logger().info('Improved Cone Mapper Node initialized with fixed coordinates')
+        self.get_logger().info('Cone Mapper Node initialised')
     
     def pose_callback(self, msg):
         """Handle pose updates with validation"""
@@ -412,7 +412,7 @@ class ImprovedConeMapperNode(Node):
         
         status = DiagnosticStatus()
         status.name = 'cone_mapping'
-        status.hardware_id = 'improved_cone_mapper'
+        status.hardware_id = 'cone_mapper'
         
         # Calculate metrics
         if self.stats['processing_times']:
@@ -462,7 +462,7 @@ class ImprovedConeMapperNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     
-    node = ImprovedConeMapperNode()
+    node = ConeMapperNode()
     
     try:
         rclpy.spin(node)
