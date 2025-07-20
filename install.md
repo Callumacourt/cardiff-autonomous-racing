@@ -87,12 +87,34 @@ sudo apt install -y \
 # Install OpenCV (if not already installed)
 sudo apt install -y libopencv-dev python3-opencv
 
-# Install Pangolin
+# Install Pangolin dependencies
+sudo apt install -y \
+    libgl1-mesa-dev \
+    libglew-dev \
+    libpython3-dev \
+    libepoxy-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libtiff5-dev \
+    libopenexr-dev \
+    liblz4-dev \
+    libzstd-dev \
+    python3-wheel \
+    python3-setuptools
+
+# Install Pangolin (make sure no virtual environment is active)
+# Deactivate any virtual environment first
+deactivate 2>/dev/null || true
+unset VIRTUAL_ENV
+unset PYTHONPATH
+
 cd /tmp
 git clone https://github.com/stevenlovegrove/Pangolin.git
 cd Pangolin
 mkdir build && cd build
-cmake ..
+
+# Use system Python explicitly to avoid virtual environment conflicts
+cmake -DPYTHON_EXECUTABLE=/usr/bin/python3 ..
 make -j4
 sudo make install
 ```
@@ -335,6 +357,24 @@ The complete system works as follows:
    cd perception_ws
    rm -rf build install log
    colcon build --cmake-clean-cache
+   ```
+
+6. **Pangolin CMake error - "No module named 'wheel'"**:
+   ```bash
+   # Install wheel module
+   pip3 install wheel setuptools
+   # OR if in virtual environment
+   pip install wheel setuptools
+   ```
+
+7. **Pangolin build issues**:
+   ```bash
+   # Clean and rebuild Pangolin
+   cd /tmp/Pangolin/build
+   rm -rf *
+   cmake ..
+   make -j4
+   sudo make install
    ```
 
 ### Getting Help
