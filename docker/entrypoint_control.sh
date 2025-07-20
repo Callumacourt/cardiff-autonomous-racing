@@ -27,6 +27,8 @@ elif ros2 run ros_control cmd_node 2>/dev/null; then
     echo "✅ ROS Control cmd_node started successfully"
 else
     echo "🎮 Running simple mock control node for complete system simulation..."
-    cd /workspace/Control
-    python3 simple_mock_control.py
+    # Source the workspace first to ensure eufs_msgs is available
+    source /workspace/control_ws/install/setup.bash
+    # Run the Python script through ROS2 to access EUFS messages properly
+    ros2 run ros_control simple_control_node
 fi

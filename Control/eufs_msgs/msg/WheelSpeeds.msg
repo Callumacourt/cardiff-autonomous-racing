@@ -1,8 +1,8 @@
-# Wheel Speeds message for EUFS
-std_msgs/Header header
+float32 steering
+float32 lf_speed
+float32 rf_speed
+float32 lb_speed
+float32 rb_speed
 
-# Individual wheel speeds
-float64 front_left
-float64 front_right
-float64 rear_left
-float64 rear_right
+# Steering is in radians
+# Speeds are in RPM

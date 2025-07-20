@@ -1,9 +1,16 @@
-# Car State message for EUFS
+# This message includes both the kinematic and the dynamic state of the vehicle
+# All values are in SI units
 std_msgs/Header header
+string child_frame_id # aka frame of the car
 
-# Basic car state
-geometry_msgs/Pose pose
-geometry_msgs/Twist twist
-float64 steering_angle
-float64 throttle
-float64 brake
+# Kinematic State (x_k) in header frame
+geometry_msgs/PoseWithCovariance pose
+
+# Dynamic State (x_d) in child_frame_id
+geometry_msgs/TwistWithCovariance twist   # m/s
+geometry_msgs/Vector3 linear_acceleration # m/s^2
+float64[9] linear_acceleration_covariance # Row major x, y z in (m/s^2)
+float64 slip_angle
+
+# Metadata
+float64 state_of_charge # in Volts (V)

@@ -1,7 +1,7 @@
 # Control module Dockerfile
 FROM cardiff-racing:base
 
-# Install additional dependencies for control system
+# Install additional dependencies for EUFS
 RUN apt-get update && apt-get install -y \
     python3-numpy \
     python3-scipy \
@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-std-srvs \
     ros-humble-tf2 \
     ros-humble-tf2-ros \
+    ros-humble-nav-msgs \
+    ros-humble-visualization-msgs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages for control algorithms
@@ -28,26 +30,20 @@ RUN pip3 install \
 WORKDIR /workspace
 RUN mkdir -p /workspace/control_ws/src
 
-# Copy Control modules (both ros_control and ros_can) and eufs_msgs
+# Copy Control modules and REAL eufs_msgs
 COPY Control/ros_control/ /workspace/control_ws/src/ros_control/
 COPY Control/ros_can/ /workspace/control_ws/src/ros_can/
 COPY Control/eufs_msgs/ /workspace/control_ws/src/eufs_msgs/
 
-# Create package structure for ros_control
-RUN mkdir -p /workspace/control_ws/src/ros_control/ros_control && \
-    touch /workspace/control_ws/src/ros_control/ros_control/__init__.py
-
-# Build control workspace (try both packages, fallback to ros_control only)
+# Build control workspace with real EUFS messages
 WORKDIR /workspace/control_ws
-RUN . /opt/ros/humble/setup.sh && \
-    (echo "🔧 Building eufs_msgs first..." && \
-     colcon build --symlink-install --packages-select eufs_msgs && \
-     echo "✅ eufs_msgs built successfully" && \
-     . install/setup.bash && \
-     echo "🔧 Building complete workspace..." && \
-     colcon build --symlink-install) || \
-    (echo "⚠️ Full build failed, trying ros_control only..." && \
-     colcon build --symlink-install --packages-select ros_control)
+RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
+    echo "🔧 Building EUFS messages..." && \
+    colcon build --symlink-install --packages-select eufs_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    echo "✅ EUFS messages built successfully" && \
+    . install/setup.bash && \
+    echo "🔧 Building ros_control package..." && \
+    colcon build --symlink-install --packages-select ros_control --cmake-args -DCMAKE_BUILD_TYPE=Release'
 
 # Copy entrypoint
 COPY docker/entrypoint_control.sh /entrypoint.sh

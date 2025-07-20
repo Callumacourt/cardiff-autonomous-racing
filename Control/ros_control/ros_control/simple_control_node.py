@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import rclpy
 from rclpy.node import Node
 import math
@@ -167,17 +165,10 @@ class SimpleMockControlNode(Node):
             
         current_time = self.get_clock().now().to_msg()
         
-        # Publish CAN State
+        # Publish CAN State (real EUFS structure)
         can_state_msg = CanState()
-        can_state_msg.header.stamp = current_time
-        can_state_msg.header.frame_id = "base_link"
         can_state_msg.as_state = CanState.AS_DRIVING if status == "FOLLOWING_PATH" else CanState.AS_READY
         can_state_msg.ami_state = CanState.AMI_AUTOCROSS  # Autocross mission
-        can_state_msg.mission_status = CanState.MISSION_RUNNING if status == "FOLLOWING_PATH" else CanState.MISSION_SELECTED
-        can_state_msg.ebs_state = False  # EBS not active
-        can_state_msg.can_active = True
-        can_state_msg.error_count = 0
-        can_state_msg.status = status
         self.can_state_pub.publish(can_state_msg)
         
         # Publish Vehicle Commands
