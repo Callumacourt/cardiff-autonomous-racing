@@ -57,3 +57,14 @@ This repository contains a fully containerized autonomous racing system with thr
 - **Publishes**: 
   - `/planned_path`: Optimal racing path
 - **Algorithm**: RRT* with dynamic obstacle avoidance
+
+### Control System (`racing_control`)
+- **Purpose**: Vehicle control with real EUFS message integration
+- **Subscribes**:
+  - `/planned_path`: Racing path from planning
+- **Publishes**:
+  - `/racing/control/steering`: Steering commands
+  - `/racing/control/throttle`: Throttle commands
+  - `/car_pose`: Vehicle position feedback
+  - `/can_state`: EUFS autonomous system state
+- **Features**: Real EUFS messages, position feedback, vehicle dynamics
