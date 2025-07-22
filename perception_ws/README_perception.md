@@ -62,11 +62,13 @@ ros2 launch slam_example slam_example.launch.py
 
 ```
 
-Launch cone mapping node:
+Launch cone mapping node and visuals:
 
 ```
-ros2 run cone_mapper cone_mapper_v6.py
+ros2 run cone_mapper cone_mapper.py
 
-python3 src/cone_mapper/cone_mapper/visualise_mapper02.py
+(optional) ros2 run cone_mapper track_generation.py
+
+ros2 run cone_mapper map_visual.py
 
 ```
