@@ -2,29 +2,41 @@ version: '3.8'
 
 services:
   # Mock data for testing
-  mock_data:
+  #mock_data:
+  #  build:
+  #    context: .
+#      dockerfile: docker/Dockerfile.planning
+#    container_name: racing_mock
+ #   environment:
+  #    - ROS_DOMAIN_ID=0
+   #   - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
+    #volumes:
+    #  - ./test_data:/workspace/test_data
+    #networks:
+    #  - racing_network
+    #entrypoint: ""
+    #command: >
+    #  bash -c "
+    #  source /opt/ros/humble/setup.bash &&
+    #  echo '🚀 Starting mock data publishers...' &&
+    #  cd /workspace/test_data &&
+    #  python3 test_cone_published.py &
+    #  python3 mock_pose_publisher.py &
+    #  echo 'Publishers started, keeping container alive...' &&
+    #  sleep infinity
+    #  "
+
+  base:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.planning
-    container_name: racing_mock
+      context: . 
+      dockerfile: docker/Dockerfile.base
+    container_name: racing_base
     environment:
       - ROS_DOMAIN_ID=0
-      - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
-    volumes:
-      - ./test_data:/workspace/test_data
     networks:
       - racing_network
     entrypoint: ""
-    command: >
-      bash -c "
-      source /opt/ros/humble/setup.bash &&
-      echo '🚀 Starting mock data publishers...' &&
-      cd /workspace/test_data &&
-      python3 test_cone_published.py &
-      python3 mock_pose_publisher.py &
-      echo 'Publishers started, keeping container alive...' &&
-      sleep infinity
-      "
+
 
   # Perception system
   perception:
@@ -32,6 +44,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile.perception
     container_name: racing_perception
+    depends_on:
+      - base
     environment:
       - ROS_DOMAIN_ID=0
     volumes:

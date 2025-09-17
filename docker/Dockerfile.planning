@@ -1,10 +1,10 @@
-FROM cardiff-racing:base
+FROM cardiff-autonomous-racing_base
 
 # Create proper package structure
 RUN mkdir -p /workspace/planning_ws/src/path_planning
 
 # Copy path planning files
-COPY ["Path Planning/", "/workspace/planning_ws/src/path_planning/"]
+COPY ["Path_Planning/", "/workspace/planning_ws/src/path_planning/"]
 
 # Create resource directory for ROS2 package
 RUN mkdir -p /workspace/planning_ws/src/path_planning/resource && \

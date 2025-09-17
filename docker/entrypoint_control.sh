@@ -9,6 +9,10 @@ source /opt/ros/humble/setup.bash
 # Source our workspace
 if [ -f /workspace/control_ws/install/setup.bash ]; then
     source /workspace/control_ws/install/setup.bash
+    if [ ! -f /workspace/control_ws/ros_can/ ]; then
+        echo "ros_can folder does not exist"
+    fi
+    sh /workspace/control_ws/ros_can/FS-AI-API/setup.sh
     echo "✅ Control workspace sourced successfully"
 else
     echo "❌ Control workspace not found, building..."
@@ -21,9 +25,9 @@ fi
 echo "🚀 Launching ROS control node..."
 
 # Try to run ros_can first (if eufs_msgs built successfully)
-if ros2 run ros_can ros_can_node 2>/dev/null; then
+if ros2 launch ros_can ros_can.launch.py 2>/dev/null; then
     echo "✅ ROS CAN node started successfully"
-elif ros2 run ros_control cmd_node 2>/dev/null; then
+elif ros2 run ros_control command_node 2>/dev/null; then
     echo "✅ ROS Control cmd_node started successfully"
 else
     echo "🎮 Running simple mock control node for complete system simulation..."

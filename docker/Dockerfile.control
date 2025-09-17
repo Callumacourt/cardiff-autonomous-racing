@@ -1,5 +1,5 @@
 # Control module Dockerfile
-FROM cardiff-racing:base
+FROM cardiff-autonomous-racing_base
 
 # Install additional dependencies for EUFS
 RUN apt-get update && apt-get install -y \
