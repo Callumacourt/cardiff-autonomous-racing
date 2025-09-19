@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   # Mock data for testing
@@ -96,8 +96,11 @@ services:
     volumes:
       - ./Control:/workspace/Control
       - ./Control/logs:/workspace/logs
-    networks:
-      - racing_network
+    #networks:
+    #  - racing_network
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
     entrypoint: ["/entrypoint.sh"]
 
 networks:

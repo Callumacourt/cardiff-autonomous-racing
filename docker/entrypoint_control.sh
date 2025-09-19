@@ -6,13 +6,13 @@ echo "🎮 Starting Control Module..."
 # Source ROS 2
 source /opt/ros/humble/setup.bash
 
+ip link show vcan0
+
+#sudo modprobe vcan
 # Source our workspace
 if [ -f /workspace/control_ws/install/setup.bash ]; then
     source /workspace/control_ws/install/setup.bash
-    if [ ! -f /workspace/control_ws/ros_can/ ]; then
-        echo "ros_can folder does not exist"
-    fi
-    sh /workspace/control_ws/ros_can/FS-AI-API/setup.sh
+    sh /workspace/control_ws/src/ros_can/FS-AI-API/setup.sh
     echo "✅ Control workspace sourced successfully"
 else
     echo "❌ Control workspace not found, building..."
