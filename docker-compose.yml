@@ -103,6 +103,20 @@ services:
     network_mode: host
     entrypoint: ["/entrypoint.sh"]
 
+  eufs_sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.eufs_sim
+    container_name: racing_eufs_sim
+    depends_on:
+      - control
+      - path_planning
+      - perception
+    environment:
+      - ROS_DOMAIN_ID=0
+    networks:
+      - racing_network
+
 networks:
   racing_network:
     driver: bridge
