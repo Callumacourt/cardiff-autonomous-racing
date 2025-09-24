@@ -1,30 +1,42 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   # Mock data for testing
-  mock_data:
+  #mock_data:
+  #  build:
+  #    context: .
+#      dockerfile: docker/Dockerfile.planning
+#    container_name: racing_mock
+ #   environment:
+  #    - ROS_DOMAIN_ID=0
+   #   - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
+    #volumes:
+    #  - ./test_data:/workspace/test_data
+    #networks:
+    #  - racing_network
+    #entrypoint: ""
+    #command: >
+    #  bash -c "
+    #  source /opt/ros/humble/setup.bash &&
+    #  echo '🚀 Starting mock data publishers...' &&
+    #  cd /workspace/test_data &&
+    #  python3 test_cone_published.py &
+    #  python3 mock_pose_publisher.py &
+    #  echo 'Publishers started, keeping container alive...' &&
+    #  sleep infinity
+    #  "
+
+  base:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.planning
-    container_name: racing_mock
-    environment:
-      - ROS_DOMAIN_ID=0
-      - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
-    volumes:
-      - ./test_data:/workspace/test_data
+      context: . 
+      dockerfile: docker/Dockerfile.base
+    container_name: racing_base
+    env_file:
+      - docker/shared.env
     networks:
       - racing_network
     entrypoint: ""
-    command: >
-      bash -c "
-      source /opt/ros/humble/setup.bash &&
-      echo '🚀 Starting mock data publishers...' &&
-      cd /workspace/test_data &&
-      python3 test_cone_published.py &
-      python3 mock_pose_publisher.py &
-      echo 'Publishers started, keeping container alive...' &&
-      sleep infinity
-      "
+
 
   # Perception system
   perception:
@@ -32,8 +44,10 @@ services:
       context: .
       dockerfile: docker/Dockerfile.perception
     container_name: racing_perception
-    environment:
-      - ROS_DOMAIN_ID=0
+    depends_on:
+      - base
+    env_file:
+      - docker/shared.env
     volumes:
       - ./logs:/workspace/logs
     networks:
@@ -54,8 +68,8 @@ services:
     container_name: racing_planning
     depends_on:
       - perception
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     volumes:
       - ./logs:/workspace/logs
     networks:
@@ -77,14 +91,41 @@ services:
     container_name: racing_control
     depends_on:
       - path_planning
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     volumes:
       - ./Control:/workspace/Control
       - ./Control/logs:/workspace/logs
+    #networks:
+    #  - racing_network
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    ports:      
+      - "7400:7400/udp"
+    entrypoint: ["/entrypoint.sh"]
+
+  eufs_sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.eufs_sim
+    container_name: racing_eufs_sim
+    depends_on:
+      - control
+      - path_planning
+      - perception
+      - base
+    env_file:
+      - docker/shared.env
+      #- QT_QPA_PLATFORM=xcb
+    #network_mode: host
     networks:
       - racing_network
-    entrypoint: ["/entrypoint.sh"]
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix # this might not work on wayland machines
+    privileged: true
+    stdin_open: true
+    tty: true
 
 networks:
   racing_network:

@@ -1,8 +1,11 @@
 # Control module Dockerfile
-FROM cardiff-racing:base
+FROM cardiff-autonomous-racing_base
 
 # Install additional dependencies for EUFS
 RUN apt-get update && apt-get install -y \
+    iproute2 \
+    can-utils \
+    kmod \
     python3-numpy \
     python3-scipy \
     python3-matplotlib \
@@ -38,17 +41,24 @@ COPY Control/eufs_msgs/ /workspace/control_ws/src/eufs_msgs/
 # Build control workspace with real EUFS messages
 WORKDIR /workspace/control_ws
 RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
-    echo "🔧 Building EUFS messages..." && \
-    colcon build --symlink-install --packages-select eufs_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-    echo "✅ EUFS messages built successfully" && \
-    . install/setup.bash && \
-    echo "🔧 Building ros_control package..." && \
-    colcon build --symlink-install --packages-select ros_control --cmake-args -DCMAKE_BUILD_TYPE=Release'
+echo "🔧 Building EUFS messages..." && \
+colcon build --symlink-install --packages-select eufs_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+echo "✅ EUFS messages built successfully" && \
+. install/setup.bash && \
+echo "🔧 Building ros_control package..." && \
+colcon build --symlink-install --packages-select ros_control --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+echo "🔧 Building ros_can package..." && \
+colcon build --symlink-install --packages-select ros_can --cmake-args -DCMAKE_BUILD_TYPE=Release'
 
 # Copy entrypoint
 COPY docker/entrypoint_control.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+COPY Control/logs/ /workspace/control_ws/logs/
+RUN ln -sf /dev/stdout /workspace/control_ws/logs/control_output.log
+RUN ls -sf /dev/stdout /workspace/control_ws/logs/ros_can_output.log
+
 WORKDIR /workspace
+RUN ls
 
 ENTRYPOINT ["/entrypoint.sh"]

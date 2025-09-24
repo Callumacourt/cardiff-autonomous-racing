@@ -6,10 +6,30 @@ This repository contains a fully containerized autonomous racing system with thr
 - **Mock Data Publishers**: Simulates car pose and cone detection data
 - **Perception System**: Processes cone data and creates local maps
 - **Path Planning System**: Generates optimal racing paths using RRT* algorithm
+- **Control system**: Generates inputs for the car to follow
 
 ### Prerequisites
 - Docker and Docker Compose installed
 - Git (for cloning the repository)
+
+### Before running the system
+
+1. **Run the FSAI-API setup script**
+   ```bash
+   . /your/path/to/here/Control/ros_can/FS-AI-API/setup.sh
+   ```
+2. **For guis to work, add docker to the xhost access control**
+   ```bash
+   xhost +local:docker
+   ```
+3. **For ros communication with the control node**
+- To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
+  You can do this on linux with this:
+   ```bash
+   sudo ufw allow proto udp from any to any port 7400
+   sudo ufw allow proto tcp from any to any port 7410:7420
+   sudo ufw allow proto udp from any to any port 7410:7420
+   ```
 
 ### Running the System
 
@@ -21,17 +41,23 @@ This repository contains a fully containerized autonomous racing system with thr
 
 2. **Build all containers**:
    ```bash
-   docker-compose build
+   sudo docker-compose build
    ```
 
-3. **Start the entire system**:
+3. **Start the entire system (without eufs simulation)**:
    ```bash
-   docker-compose up
+   sudo docker-compose up
    ```
 
-4. **Start in detached mode** (run in background):
+4. **Start the entire system (with eufs simulation)**:
+- set `eufs_simulate=1` in `docker/shared.env`
    ```bash
-   docker-compose up -d
+   sudo docker-compose up
+   ```
+
+5. **Start in detached mode** (run in background):
+   ```bash
+   sudo docker-compose up -d
    ```
 
 ## System Components
