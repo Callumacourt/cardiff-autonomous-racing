@@ -31,8 +31,8 @@ services:
       context: . 
       dockerfile: docker/Dockerfile.base
     container_name: racing_base
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     networks:
       - racing_network
     entrypoint: ""
@@ -46,8 +46,8 @@ services:
     container_name: racing_perception
     depends_on:
       - base
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     volumes:
       - ./logs:/workspace/logs
     networks:
@@ -68,8 +68,8 @@ services:
     container_name: racing_planning
     depends_on:
       - perception
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     volumes:
       - ./logs:/workspace/logs
     networks:
@@ -91,8 +91,8 @@ services:
     container_name: racing_control
     depends_on:
       - path_planning
-    environment:
-      - ROS_DOMAIN_ID=0
+    env_file:
+      - docker/shared.env
     volumes:
       - ./Control:/workspace/Control
       - ./Control/logs:/workspace/logs
@@ -112,10 +112,16 @@ services:
       - control
       - path_planning
       - perception
-    environment:
-      - ROS_DOMAIN_ID=0
-    networks:
-      - racing_network
+      - base
+    env_file:
+      - docker/shared.env
+      #- QT_QPA_PLATFORM=xcb
+    network_mode: host
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix # this might not work on wayland machines
+    privileged: true
+    stdin_open: true
+    tty: true
 
 networks:
   racing_network:

@@ -7,6 +7,7 @@ echo "🎮 Starting Control Module..."
 source /opt/ros/humble/setup.bash
 
 ip link show vcan0
+echo $eufs_simulate
 
 #sudo modprobe vcan
 # Source our workspace
@@ -24,15 +25,35 @@ fi
 # Start the control node
 echo "🚀 Launching ROS control node..."
 
-# Try to run ros_can first (if eufs_msgs built successfully)
-if ros2 launch ros_can ros_can.launch.py 2>/dev/null; then
-    echo "✅ ROS CAN node started successfully"
-elif ros2 run ros_control command_node 2>/dev/null; then
-    echo "✅ ROS Control cmd_node started successfully"
+#check if we have eufs_simulate=true
+if [ $eufs_simulate != 1 ]; then
+    echo "not using simulator"
+    cd /workspace/control_ws
+    export PYTHONPATH="$PYTHONPATH:/workspace/control_ws/src/ros_control/ros_control"
+    date >> logs/control_output.log
+    ros2 run ros_control command_node >> logs/control_output.log 2>&1 &
+
+    date >> logs/ros_can_output.log 
+    ros2 launch ros_can ros_can.launch.py >> logs/ros_can_output.log 2>&1 &
 else
-    echo "🎮 Running simple mock control node for complete system simulation..."
-    # Source the workspace first to ensure eufs_msgs is available
-    source /workspace/control_ws/install/setup.bash
-    # Run the Python script through ROS2 to access EUFS messages properly
-    ros2 run ros_control simple_control_node
+    echo "using simulator"
+    export PYTHONPATH="$PYTHONPATH:/workspace/control_ws/src/ros_control/ros_control"
+    date >> logs/control_output.log
+    ros2 run ros_control command_node --ros-args -p eufs_simulate:=true >> logs/control_output.log 2>&1
 fi
+
+
+sleep infinity
+
+# Try to run ros_can first (if eufs_msgs built successfully)
+#if ros2 launch ros_can ros_can.launch.py 2>/dev/null; then
+#    echo "✅ ROS CAN node started successfully"
+#elif ros2 run ros_control command_node 2>/dev/null; then
+#    echo "✅ ROS Control cmd_node started successfully"
+#else
+#    echo "🎮 Running simple mock control node for complete system simulation..."
+#    # Source the workspace first to ensure eufs_msgs is available
+#    source /workspace/control_ws/install/setup.bash
+#    # Run the Python script through ROS2 to access EUFS messages properly
+#    ros2 run ros_control simple_control_node
+#fi
