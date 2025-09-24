@@ -12,6 +12,17 @@ This repository contains a fully containerized autonomous racing system with thr
 - Docker and Docker Compose installed
 - Git (for cloning the repository)
 
+### Before running the system
+
+1. **Run the FSAI-API setup script**
+   ```bash
+   . /your/path/to/here/Control/ros_can/FS-AI-API/setup.sh
+   ```
+2. **For guis to work, add docker to the xhost access control**
+   ```bash
+   xhost +local:docker
+   ```
+
 ### Running the System
 
 1. **Clone and navigate to the repository**:
@@ -31,7 +42,7 @@ This repository contains a fully containerized autonomous racing system with thr
    ```
 
 4. **Start the entire system (with eufs simulation)**:
-- set eufs_simulate=1 in docker/shared.env
+- set `eufs_simulate=1` in `docker/shared.env`
    ```bash
    sudo docker-compose up
    ```
