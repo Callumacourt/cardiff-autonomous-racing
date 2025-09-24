@@ -23,7 +23,7 @@ This repository contains a fully containerized autonomous racing system with thr
    xhost +local:docker
    ```
 3. **For ros communication with the control node**
-  To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
+- To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
   You can do this on linux with this:
    ```bash
    sudo ufw allow proto udp from any to any port 7400
