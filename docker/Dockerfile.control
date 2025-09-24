@@ -59,5 +59,6 @@ RUN ln -sf /dev/stdout /workspace/control_ws/logs/control_output.log
 RUN ls -sf /dev/stdout /workspace/control_ws/logs/ros_can_output.log
 
 WORKDIR /workspace
+RUN ls
 
 ENTRYPOINT ["/entrypoint.sh"]

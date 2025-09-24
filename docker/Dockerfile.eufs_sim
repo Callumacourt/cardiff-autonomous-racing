@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     ros-humble-joint-state-publisher \
     ros-humble-gazebo-plugins \
     && rm -rf /var/lib/apt/lists/*
-RUN ls
+
 RUN git clone https://github.com/EpicDynamiteGuy/eufs_sim_humble.git
 
 WORKDIR /workspace/eufs_sim_humble

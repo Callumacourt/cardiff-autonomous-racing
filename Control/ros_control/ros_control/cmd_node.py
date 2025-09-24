@@ -230,6 +230,8 @@ class MinimalPublisher(Node):
 
 
         self.get_logger().info(f'cmd loop')
+        self.get_logger().info(f'ami: {self.ami_state}')
+        self.get_logger().info(f'as: {self.as_state}')
         if self.ami_state == CanState.AMI_ACCELERATION:#accelleration #1
             self.get_logger().info(f'Acceleration')
             if self.as_state == CanState.AS_DRIVING:# car is in AS_DRIVING #3

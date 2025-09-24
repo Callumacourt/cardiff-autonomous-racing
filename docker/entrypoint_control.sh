@@ -8,6 +8,7 @@ source /opt/ros/humble/setup.bash
 
 ip link show vcan0
 echo $eufs_simulate
+echo $RMW_IMPLEMENTATION
 
 #sudo modprobe vcan
 # Source our workspace
@@ -39,9 +40,10 @@ else
     echo "using simulator"
     export PYTHONPATH="$PYTHONPATH:/workspace/control_ws/src/ros_control/ros_control"
     date >> logs/control_output.log
-    ros2 run ros_control command_node --ros-args -p eufs_simulate:=true >> logs/control_output.log 2>&1
+    ros2 run ros_control command_node --ros-args -p eufs_simulate:=true >> logs/control_output.log 2>&1 &
 fi
 
+#rqt_graph
 
 sleep infinity
 
