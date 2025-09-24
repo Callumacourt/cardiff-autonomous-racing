@@ -1,4 +1,4 @@
-FROM cardiff-autonomous-racing_control
+FROM cardiff-autonomous-racing_base
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -25,8 +25,10 @@ RUN apt-get update && apt-get install -y \
     ros-humble-xacro \
     ros-humble-joint-state-publisher \
     ros-humble-gazebo-plugins \
+    qt6-3d-dev \
+    xcb \
     && rm -rf /var/lib/apt/lists/*
-RUN ls
+
 RUN git clone https://github.com/EpicDynamiteGuy/eufs_sim_humble.git
 
 WORKDIR /workspace/eufs_sim_humble
@@ -48,6 +50,9 @@ RUN rosdep install --from-paths $EUFS_MASTER --ignore-src -r -y
 
 RUN . /opt/ros/humble/setup.sh && \
     colcon build
+
+
+
 
 COPY docker/entrypoint_eufs_sim.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
