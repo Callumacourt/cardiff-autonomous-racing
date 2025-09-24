@@ -6,6 +6,7 @@ This repository contains a fully containerized autonomous racing system with thr
 - **Mock Data Publishers**: Simulates car pose and cone detection data
 - **Perception System**: Processes cone data and creates local maps
 - **Path Planning System**: Generates optimal racing paths using RRT* algorithm
+- **Control system**: Generates inputs for the car to follow
 
 ### Prerequisites
 - Docker and Docker Compose installed
@@ -21,17 +22,23 @@ This repository contains a fully containerized autonomous racing system with thr
 
 2. **Build all containers**:
    ```bash
-   docker-compose build
+   sudo docker-compose build
    ```
 
-3. **Start the entire system**:
+3. **Start the entire system (without eufs simulation)**:
    ```bash
-   docker-compose up
+   sudo docker-compose up
    ```
 
-4. **Start in detached mode** (run in background):
+4. **Start the entire system (with eufs simulation)**:
+- set eufs_simulate=1 in docker/shared.env
    ```bash
-   docker-compose up -d
+   sudo docker-compose up
+   ```
+
+5. **Start in detached mode** (run in background):
+   ```bash
+   sudo docker-compose up -d
    ```
 
 ## System Components
