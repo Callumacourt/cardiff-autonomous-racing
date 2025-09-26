@@ -34,7 +34,7 @@ class MinimalPublisher(Node):
         self.publisher_df = self.create_publisher(std_msgs.msg.Bool, "state_machine/driving_flag", 10)
         self.get_logger().info("state_machine/driving_flag publisher started")
         self.publisher_mf = self.create_publisher(std_msgs.msg.Bool, "ros_can/mission_completed", 10)
-        self.get_logger().info("ros_con/mission_complete publisher started")
+        self.get_logger().info("ros_can/mission_complete publisher started")
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
