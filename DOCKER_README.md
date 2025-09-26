@@ -11,7 +11,6 @@ This repository contains a fully containerized autonomous racing system with thr
 ### Prerequisites
 - Docker and Docker Compose installed
 - Git (for cloning the repository)
-- **NOTE** at present the docker has not been fully tested on a windows machine, using a linux distro that uses X11 for is recommended. Such as Ubuntu or Linux Mint
 
 ### Before running the system
 
