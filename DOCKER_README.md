@@ -22,13 +22,15 @@ This repository contains a fully containerized autonomous racing system with thr
    ```bash
    xhost +local:docker
    ```
+   - This needs to be done every time you log on, so consider adding it to your .bashrc
 3. **For ros communication with the control node**
-- To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
+   - To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
   You can do this on linux with this:
    ```bash
    sudo ufw allow proto udp from any to any port 7400
    sudo ufw allow proto tcp from any to any port 7410:7420
    sudo ufw allow proto udp from any to any port 7410:7420
+   sudo ufw reload
    ```
 
 ### Running the System
@@ -89,8 +91,9 @@ This repository contains a fully containerized autonomous racing system with thr
 - **Subscribes**:
   - `/planned_path`: Racing path from planning
 - **Publishes**:
-  - `/racing/control/steering`: Steering commands
-  - `/racing/control/throttle`: Throttle commands
+  - `/cmd`: steering and acceleration commands (if eufs_simulate=0, this is picked up by ros_can and converted into torque requests, which are sent down the can bus)
+  - `/state_machine/driving_flag`: flag saying wether the car is in driving mode, instructions from /cmd will only be recieved if this is true
+  - `/ros_can/mission_completed`: flag saying wether the mission has been completed, car will only recieve instructions if this is false
   - `/car_pose`: Vehicle position feedback
   - `/can_state`: EUFS autonomous system state
 - **Features**: Real EUFS messages, position feedback, vehicle dynamics
