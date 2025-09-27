@@ -1,5 +1,5 @@
 # Control module Dockerfile
-FROM cardiff-autonomous-racing_base
+FROM car-base
 
 # Install additional dependencies for EUFS
 RUN apt-get update && apt-get install -y \
@@ -39,6 +39,7 @@ COPY Control/ros_can/ /workspace/control_ws/src/ros_can/
 COPY Control/eufs_msgs/ /workspace/control_ws/src/eufs_msgs/
 
 # Build control workspace with real EUFS messages
+RUN ls
 WORKDIR /workspace/control_ws
 RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
 echo "🔧 Building EUFS messages..." && \
@@ -48,7 +49,7 @@ echo "✅ EUFS messages built successfully" && \
 echo "🔧 Building ros_control package..." && \
 colcon build --symlink-install --packages-select ros_control --cmake-args -DCMAKE_BUILD_TYPE=Release && \
 echo "🔧 Building ros_can package..." && \
-colcon build --symlink-install --packages-select ros_can --cmake-args -DCMAKE_BUILD_TYPE=Release'
+colcon build --symlink-install --packages-select ros_can --cmake-args -DCMAKE_BUILD_TYPE=Release '
 
 # Copy entrypoint
 COPY docker/entrypoint_control.sh /entrypoint.sh

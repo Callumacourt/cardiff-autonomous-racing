@@ -31,6 +31,7 @@ services:
       context: . 
       dockerfile: docker/Dockerfile.base
     container_name: racing_base
+    image: car-base
     env_file:
       - docker/shared.env
     networks:
@@ -44,6 +45,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.perception
     container_name: racing_perception
+    image: car-perception
     depends_on:
       - base
     env_file:
@@ -66,6 +68,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.planning
     container_name: racing_planning
+    image: car-planning
     depends_on:
       - perception
     env_file:
@@ -89,6 +92,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.control
     container_name: racing_control
+    image: car-control
     depends_on:
       - path_planning
     env_file:
@@ -110,6 +114,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.eufs_sim
     container_name: racing_eufs_sim
+    image: car-eufs
     depends_on:
       - control
       - path_planning

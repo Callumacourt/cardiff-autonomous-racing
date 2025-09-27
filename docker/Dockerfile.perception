@@ -1,5 +1,5 @@
 # File: docker/Dockerfile.perception
-FROM cardiff-autonomous-racing_base
+FROM car-base
 
 # Install additional dependencies for perception
 RUN apt-get update && apt-get install -y \

@@ -1,4 +1,4 @@
-FROM cardiff-autonomous-racing_base
+FROM car-base
 
 # Create proper package structure
 RUN mkdir -p /workspace/planning_ws/src/path_planning

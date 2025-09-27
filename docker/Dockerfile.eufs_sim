@@ -1,4 +1,4 @@
-FROM cardiff-autonomous-racing_control
+FROM car-control
 
 RUN apt-get update && apt-get install -y \
     build-essential \
