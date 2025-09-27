@@ -44,23 +44,37 @@ This repository contains a fully containerized autonomous racing system with thr
 
 2. **Build all containers**:
    ```bash
-   sudo docker-compose build
+   sudo docker compose build
    ```
+
+-  **First time build**
+
+   On the very first build you may get an error like this: `ERROR [eufs_sim internal] load metadata for docker.io/library/cardiff-autonomous-racing-control:latest`
+
+   To fix this you can build each container individually like this
+   ```bash
+   sudo docker compose build base
+   sudo docker compose build perception
+   sudo docker compose build path_planning
+   sudo docker compose build control
+   sudo docker compose build eufs_sim
+   ```
+   Remember, this is only necesary the first time you ever build this system.
 
 3. **Start the entire system (without eufs simulation)**:
    ```bash
-   sudo docker-compose up
+   sudo docker compose up
    ```
 
 4. **Start the entire system (with eufs simulation)**:
 - set `eufs_simulate=1` in `docker/shared.env`
    ```bash
-   sudo docker-compose up
+   sudo docker compose up
    ```
 
 5. **Start in detached mode** (run in background):
    ```bash
-   sudo docker-compose up -d
+   sudo docker compose up -d
    ```
 
 ## System Components
