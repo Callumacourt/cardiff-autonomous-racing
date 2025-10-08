@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# File: test_data/test_cone_publisher.py
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String

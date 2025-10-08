@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import rclpy
 from rclpy.node import Node
 import math
@@ -13,9 +11,9 @@ from std_msgs.msg import Float32, String
 try:
     from eufs_msgs.msg import CanState, CarState, VehicleCommandsStamped, WheelSpeeds
     EUFS_MSGS_AVAILABLE = True
-    print("✅ EUFS messages imported successfully")
+    print(" EUFS messages imported successfully")
 except ImportError as e:
-    print(f"⚠️ EUFS messages not available: {e}")
+    print(f" EUFS messages not available: {e}")
     EUFS_MSGS_AVAILABLE = False
 
 class SimpleMockControlNode(Node):
@@ -48,9 +46,9 @@ class SimpleMockControlNode(Node):
             self.can_state_pub = self.create_publisher(CanState, '/can_state', 10)
             self.car_state_pub = self.create_publisher(CarState, '/car_state', 10)
             self.vehicle_commands_pub = self.create_publisher(VehicleCommandsStamped, '/vehicle_commands', 10)
-            self.get_logger().info('🚗 EUFS message publishers initialized')
+            self.get_logger().info(' EUFS message publishers initialized')
         else:
-            self.get_logger().warn('⚠️ EUFS messages not available, using fallback publishers')
+            self.get_logger().warn(' EUFS messages not available, using fallback publishers')
         
         # Vehicle state for position integration
         self.current_pos_x = 0.0
@@ -65,15 +63,15 @@ class SimpleMockControlNode(Node):
         # Control loop timer
         self.control_timer = self.create_timer(0.1, self.control_loop)
         
-        self.get_logger().info('🎮 Simple Mock Control Node initialized')
-        self.get_logger().info('📡 Subscribed to: /planned_path')
-        self.get_logger().info('📤 Publishing: /racing/control/steering, /racing/control/throttle, /racing/control/status, /car_pose')
+        self.get_logger().info('Simple Mock Control Node initialized')
+        self.get_logger().info('Subscribed to: /planned_path')
+        self.get_logger().info('Publishing: /racing/control/steering, /racing/control/throttle, /racing/control/status, /car_pose')
         
     def path_callback(self, msg):
         """Process incoming path from planning"""
         self.current_path = msg
         if len(msg.poses) > 0:
-            self.get_logger().info(f'🛣️ Received path with {len(msg.poses)} waypoints')
+            self.get_logger().info(f' Received path with {len(msg.poses)} waypoints')
         
     def control_loop(self):
         """Main control loop"""
@@ -141,7 +139,7 @@ class SimpleMockControlNode(Node):
         # Log every 5 seconds with position info
         if int(time.time()) % 5 == 0:
             eufs_status = "with EUFS msgs" if EUFS_MSGS_AVAILABLE else "fallback mode"
-            self.get_logger().info(f'🚗 Control: pos=({self.current_pos_x:.1f},{self.current_pos_y:.1f}) steering={steering:.2f}, throttle={throttle:.2f}, status={status} ({eufs_status})')
+            self.get_logger().info(f'Control: pos=({self.current_pos_x:.1f},{self.current_pos_y:.1f}) steering={steering:.2f}, throttle={throttle:.2f}, status={status} ({eufs_status})')
     
     def publish_vehicle_pose(self):
         """Publish current vehicle position for path planning feedback"""

@@ -1,7 +1,5 @@
-#!/bin/bash
-
 # Control module entrypoint script
-echo "🎮 Starting Control Module..."
+echo " Starting Control Module..."
 
 # Source ROS 2
 source /opt/ros/humble/setup.bash
@@ -15,16 +13,16 @@ echo $RMW_IMPLEMENTATION
 if [ -f /workspace/control_ws/install/setup.bash ]; then
     source /workspace/control_ws/install/setup.bash
     sh /workspace/control_ws/src/ros_can/FS-AI-API/setup.sh
-    echo "✅ Control workspace sourced successfully"
+    echo " Control workspace sourced successfully"
 else
-    echo "❌ Control workspace not found, building..."
+    echo " Control workspace not found, building..."
     cd /workspace/control_ws
     colcon build --symlink-install
     source /workspace/control_ws/install/setup.bash
 fi
 
 # Start the control node
-echo "🚀 Launching ROS control node..."
+echo " Launching ROS control node..."
 
 #check if we have eufs_simulate=true
 if [ $eufs_simulate != 1 ]; then
@@ -49,11 +47,11 @@ sleep infinity
 
 # Try to run ros_can first (if eufs_msgs built successfully)
 #if ros2 launch ros_can ros_can.launch.py 2>/dev/null; then
-#    echo "✅ ROS CAN node started successfully"
+#    echo "ROS CAN node started successfully"
 #elif ros2 run ros_control command_node 2>/dev/null; then
-#    echo "✅ ROS Control cmd_node started successfully"
+#    echo " ROS Control cmd_node started successfully"
 #else
-#    echo "🎮 Running simple mock control node for complete system simulation..."
+#    echo " Running simple mock control node for complete system simulation..."
 #    # Source the workspace first to ensure eufs_msgs is available
 #    source /workspace/control_ws/install/setup.bash
 #    # Run the Python script through ROS2 to access EUFS messages properly

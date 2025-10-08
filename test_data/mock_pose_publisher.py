@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# File: test_data/mock_pose_publisher.py
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry

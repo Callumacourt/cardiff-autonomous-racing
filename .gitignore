@@ -1,0 +1,109 @@
+# Cardiff Autonomous Racing - Git Ignore File
+# ===========================================
+
+# ROS2 Build Artifacts
+**/build/
+**/install/
+**/log/
+**/.colcon_install_layout
+**/COLCON_IGNORE
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.pytest_cache/
+*.egg-info/
+
+# Machine Learning Models
+*.pt
+*.pth
+*.onnx
+*.trt
+!yolov8n.pt  # Keep the base model
+models/*.pt
+weights/*.pt
+runs/
+wandb/
+
+# Training Data
+training_data/
+datasets/
+data/
+*.bag
+*.db3
+
+# Docker
+.dockerignore
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+**/*.log
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS Generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Development
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Generated documentation
+docs/_build/
+site/
+
+# Test outputs
+test_results/
+junit.xml
+coverage.xml
+
+# Specific to this project
+perception_ws/yolov8*.pt
+!perception_ws/yolov8n.pt
+eufs_sim_humble/
+old_perception*/
