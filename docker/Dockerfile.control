@@ -56,6 +56,7 @@ COPY docker/entrypoint_control.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 RUN dos2unix /entrypoint.sh
+RUN dos2unix /workspace/control_ws/src/ros_can/FS-AI-API/setup.sh
 
 COPY Control/logs/ /workspace/control_ws/logs/
 RUN ln -sf /dev/stdout /workspace/control_ws/logs/control_output.log
