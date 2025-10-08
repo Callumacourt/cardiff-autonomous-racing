@@ -52,4 +52,7 @@ RUN . /opt/ros/humble/setup.sh && \
 COPY docker/entrypoint_eufs_sim.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+RUN dos2unix /entrypoint.sh
+
+
 ENTRYPOINT ["/entrypoint.sh"]

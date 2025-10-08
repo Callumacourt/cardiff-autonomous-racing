@@ -55,6 +55,8 @@ colcon build --symlink-install --packages-select ros_can --cmake-args -DCMAKE_BU
 COPY docker/entrypoint_control.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+RUN dos2unix /entrypoint.sh
+
 COPY Control/logs/ /workspace/control_ws/logs/
 RUN ln -sf /dev/stdout /workspace/control_ws/logs/control_output.log
 RUN ls -sf /dev/stdout /workspace/control_ws/logs/ros_can_output.log

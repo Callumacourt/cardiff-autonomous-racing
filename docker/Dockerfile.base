@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libsuitesparse-dev \
     libatlas-base-dev \
     libgoogle-glog-dev \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
