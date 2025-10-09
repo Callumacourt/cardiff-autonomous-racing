@@ -46,8 +46,10 @@ ENV CMAKE_PREFIX_PATH=/opt/ros/humble:/opt/ros/humble/share
 RUN rosdep update 
 RUN rosdep install --from-paths $EUFS_MASTER --ignore-src -r -y
 
+ENV MAKEFLAGS=-j1
+
 RUN . /opt/ros/humble/setup.sh && \
-    colcon build
+    colcon build --parallel-workers 1
 
 COPY docker/entrypoint_eufs_sim.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
