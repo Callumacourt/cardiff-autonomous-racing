@@ -11,20 +11,30 @@ This repository contains a fully containerized autonomous racing system with thr
 ### Prerequisites
 - Docker and Docker Compose installed
 - Git (for cloning the repository)
-- **NOTE** at present the docker has not been fully tested on a windows machine, using a linux distro that uses X11 for is recommended. Such as Ubuntu or Linux Mint
+- If on windows, you will need wsl 2 using the Ubuntu-22.04 distro
+
+If on windows, run all the following steps from within wsl.
 
 ### Before running the system
 
-1. **Run the FSAI-API setup script**
+1. **Clone and navigate to the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd cardiff-autonomous-racing
+   ```
+
+2. **Run the FSAI-API setup script**
    ```bash
    . /your/path/to/here/Control/ros_can/FS-AI-API/setup.sh
    ```
-2. **For guis to work, add docker to the xhost access control**
+3. **For guis to work, add docker to the xhost access control**
    ```bash
    xhost +local:docker
    ```
    - This needs to be done every time you log on, so consider adding it to your .bashrc
-3. **For ros communication with the control node**
+   - This does not need to be done on windows using wsl.
+
+4. **For ros communication with the control node**
    - To enable ros communication with the control node you might need to add some rules to your firewall. This is because the control node needs to use `network_mode: host` to access the can bus.
   You can do this on linux with this:
    ```bash
@@ -33,12 +43,14 @@ This repository contains a fully containerized autonomous racing system with thr
    sudo ufw allow proto udp from any to any port 7410:7420
    sudo ufw reload
    ```
+   - This also does not need to be done on windows
 
 ### Running the System
 
-1. **Clone and navigate to the repository**:
+If on windows, run from within wsl.
+
+1. **Navigate to the repository**:
    ```bash
-   git clone <your-repo-url>
    cd cardiff-autonomous-racing
    ```
 
