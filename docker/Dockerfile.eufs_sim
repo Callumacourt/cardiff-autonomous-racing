@@ -35,6 +35,9 @@ RUN pip3 install colcon-common-extensions -U
 
 RUN git clone https://gitlab.com/eufs/eufs_msgs.git
 
+# Clone EUFS RViz plugins for cone visualization
+RUN git clone https://gitlab.com/eufs/eufs_rviz_plugins.git
+
 RUN . /opt/ros/humble/setup.sh
 
 ENV EUFS_MASTER=/workspace/eufs_sim_humble

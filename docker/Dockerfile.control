@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     python3-matplotlib \
     build-essential \
     cmake \
+    dos2unix \
     ros-humble-ackermann-msgs \
     ros-humble-geometry-msgs \
     ros-humble-std-msgs \

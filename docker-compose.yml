@@ -1,5 +1,3 @@
-#version: '3.8'
-
 services:
   # Mock data for testing
   #mock_data:
@@ -18,7 +16,7 @@ services:
     #command: >
     #  bash -c "
     #  source /opt/ros/humble/setup.bash &&
-    #  echo '🚀 Starting mock data publishers...' &&
+    #  echo ' Starting mock data publishers...' &&
     #  cd /workspace/test_data &&
     #  python3 test_cone_published.py &
     #  python3 mock_pose_publisher.py &
@@ -50,16 +48,20 @@ services:
       - base
     env_file:
       - docker/shared.env
+    environment:
+      - DISPLAY=${DISPLAY}
     volumes:
       - ./logs:/workspace/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     networks:
       - racing_network
-    entrypoint: >
+    stdin_open: true
+    tty: true
+    entrypoint: ["/entrypoint.sh"]
+    command: >
       bash -c "
-      source /opt/ros/humble/setup.bash &&
-      source /workspace/perception_ws/install/setup.bash &&
-      echo '🎯 Starting perception system...' &&
-      ros2 run cone_mapper cone_mapper_v6
+      echo ' Perception ready. Start nodes manually or run: ros2 run cone_detector cone_detector_node' &&
+      tail -f /dev/null
       "
 
   # Path planning
@@ -116,19 +118,16 @@ services:
     container_name: racing_eufs_sim
     image: car-eufs
     depends_on:
-      - control
-      - path_planning
-      - perception
       - base
+      - perception
     env_file:
       - docker/shared.env
-      #- QT_QPA_PLATFORM=xcb
-    #network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
     networks:
       - racing_network
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix # this might not work on wayland machines
-    privileged: true
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     stdin_open: true
     tty: true
 

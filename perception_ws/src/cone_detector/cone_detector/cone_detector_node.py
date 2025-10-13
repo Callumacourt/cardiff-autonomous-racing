@@ -26,6 +26,7 @@ class ConeDetector3D(Node):
 
         self.get_logger().info("ConeDetector 3D node started.")
         self.publisher_ = self.create_publisher(String, 'detected_cones', 10)
+        self.image_pub = self.create_publisher(Image, 'cone_detection_image', 10)
 
     def image_callback(self, rgb_msg, depth_msg):
         rgb_image = self.bridge.imgmsg_to_cv2(rgb_msg, 'bgr8')
@@ -86,8 +87,13 @@ class ConeDetector3D(Node):
             msg.data = "\n".join(message_lines)
             self.publisher_.publish(msg)
 
-        cv2.imshow("Cone Detection 3D", rgb_image)
-        cv2.waitKey(1)
+        # Publish annotated image
+        annotated_msg = self.bridge.cv2_to_imgmsg(rgb_image, 'bgr8')
+        self.image_pub.publish(annotated_msg)
+
+        # Show image (may not work in Docker without X11)
+        # cv2.imshow("Cone Detection 3D", rgb_image)
+        # cv2.waitKey(1)
 
 # --- Entry Point ---
 def main(args=None):
