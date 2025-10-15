@@ -1,6 +1,14 @@
 # Perception module Dockerfile
 FROM car-base
 
+# --- ORB-SLAM3 Integration TODOs ---
+# TODO: Add proper ORB-SLAM3 build from source (C++)
+# TODO: Install Pangolin, DBoW2, and other dependencies for SLAM
+# TODO: Build Python bindings for ORB-SLAM3 with pybind11
+# TODO: Validate SLAM integration with ROS2 camera topics
+# TODO: Add SLAM launch and test scripts
+# --- End ORB-SLAM3 TODOs ---
+
 # Install additional dependencies for perception and ORB-SLAM3
 RUN apt-get update && apt-get install -y \
     python3-numpy \

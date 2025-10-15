@@ -3,6 +3,15 @@
 Improved Cone Mapper with CORRECT coordinate transformation
 """
 
+# --- Integration TODOs ---
+# TODO: Subscribe to /detected_cones (YOLO output)
+# TODO: Subscribe to /odometry/slam (ORB-SLAM3 output)
+# TODO: Transform cone detections to global frame using SLAM pose
+# TODO: Build and maintain persistent global cone map
+# TODO: Implement cone association and duplicate filtering
+# TODO: Publish global map to /global_cone_map for path planning
+# --- End Integration TODOs ---
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String

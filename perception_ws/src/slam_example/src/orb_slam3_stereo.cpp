@@ -42,6 +42,12 @@ int main(int argc, char **argv)
 
     RCLCPP_INFO(node->get_logger(), "ORB-SLAM3 Stereo node started.");
 
+    // --- SLAM Output TODOs ---
+    // TODO: Publish geometry_msgs/PoseStamped to /slam/pose for global mapping
+    // TODO: Broadcast TF frames for camera pose
+    // TODO: Add diagnostics for SLAM tracking state
+    // --- End SLAM Output TODOs ---
+
     rclcpp::spin(node);
     rclcpp::shutdown();
 

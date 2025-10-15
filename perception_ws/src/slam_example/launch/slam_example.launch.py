@@ -19,5 +19,10 @@ def generate_launch_description():
                     "viewer": True  # Pangolin viewer
                 }
             ]
-        )
+        ),
+        # --- SLAM Integration TODOs ---
+        # TODO: Add node to publish /slam/pose (geometry_msgs/PoseStamped) from SLAM
+        # TODO: Add node to transform and broadcast TF frames for camera pose
+        # TODO: Add node to visualize SLAM trajectory in RVIZ
+        # --- End SLAM Integration TODOs ---
     ])
