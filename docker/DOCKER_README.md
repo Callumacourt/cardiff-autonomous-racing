@@ -21,7 +21,9 @@ If on windows, run all the following steps from within wsl.
    ```bash
    git clone <your-repo-url>
    cd cardiff-autonomous-racing
-   ```
+   git submodule init
+   git submodule update
+```
 
 2. **Run the FSAI-API setup script**
    ```bash

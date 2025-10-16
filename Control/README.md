@@ -2,7 +2,7 @@
 
 To run this module natively, follow the installation guide below.
 
-Alternatively, you can run this system using the docker-compose by following [this guide](../DOCKER_README.md).
+Alternatively, you can run this system using the docker-compose by following [this guide](../docker//DOCKER_README.md).
 
 **NOTE** using the docker is generally much easier than doing this by hand, however installing the prerequisites on your machine can make coding easier, due to better vscode syntax highlighting.
 
