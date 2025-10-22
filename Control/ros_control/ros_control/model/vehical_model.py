@@ -23,8 +23,7 @@ class Vehicle_State():
 
 
 class Vehicle_Input():
-    def __init__(self, acceleration=0, deceleration=0, steering_angle=0):
-        self.deceleration = deceleration # brake
+    def __init__(self, acceleration=0, steering_angle=0):
         self.acceleration = acceleration # pedal
         self.steering_angle = steering_angle # steer
 
