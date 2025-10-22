@@ -20,7 +20,7 @@ import numpy as np
 from MPC.main import Model_Predictive_Contol
 from model.vehical_model import Vehicle_Input, Vehicle_State
 
-class MinimalPublisher(Node):
+class CmdNode(Node):
 
     def __init__(self):
         super().__init__('ros_control')
@@ -389,7 +389,7 @@ class MinimalPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_publisher = MinimalPublisher()
+    minimal_publisher = CmdNode()
 
     rclpy.spin(minimal_publisher)
 

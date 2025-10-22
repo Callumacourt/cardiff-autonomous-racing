@@ -6,7 +6,7 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped,Pose
 from math import sqrt
 
-class Model_Predictive_Contol():
+class Model_Predictive_Control():
 
     def __init__(self,timestep:float,max_speed:float=5.0):
         self.timestep = timestep
