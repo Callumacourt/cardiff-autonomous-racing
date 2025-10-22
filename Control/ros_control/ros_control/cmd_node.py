@@ -7,7 +7,7 @@ import std_msgs
 import std_msgs.msg
 
 from eufs_msgs.msg import CanState, WheelSpeedsStamped
-from geometry_msgs.msg import TwistWithCovarianceStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped, Quaternion
 from sensor_msgs.msg import Imu,NavSatFix
 from nav_msgs.msg import Path, Odometry
 
@@ -17,7 +17,7 @@ import math
 import numpy as np
 
 #
-from MPC.main import Model_Predictive_Contol
+from MPC.main import Model_Predictive_Control
 from model.vehical_model import Vehicle_Input, Vehicle_State
 
 class CmdNode(Node):
@@ -74,7 +74,7 @@ class CmdNode(Node):
         self.get_logger().info("Odometry/slam subscription started")
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
-        self.mpc_unit = Model_Predictive_Contol(self.timer_period,5.0)
+        self.mpc_unit = Model_Predictive_Control(self.timer_period,5.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
         self.mission_complete = False
@@ -165,7 +165,7 @@ class CmdNode(Node):
         status = msg.status
         pass
     
-    def get_yaw_from_quaternion(self,orientation):
+    def get_yaw_from_quaternion(self,orientation:Quaternion):
         """
         Returns the yaw (rotation around z) in radians from a geometry_msgs.msg.Quaternion
         """
