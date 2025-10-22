@@ -40,8 +40,8 @@ class CmdNode(Node):
         self.i = 0
 
         
-        self.as_state = 0#autonomous system state
-        self.ami_state = 0#autonomous mission indicator state
+        self.as_state = CanState.AS_OFF#autonomous system state
+        self.ami_state = CanState.AMI_NOT_SELECTED#autonomous mission indicator state
         self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
         self.wheels_rpm = 0#current average rpm of all 4 wheels
         self.WHEEL_RADIUS = 0.253
@@ -253,7 +253,7 @@ class CmdNode(Node):
                 self.publisher_.publish(msg)
                 self.get_logger().info(f'Publishing: "{msg.drive}"')
                 #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
-            elif self.as_state == 2: # car is in AS_READY
+            elif self.as_state == CanState.AS_READY: # car is in AS_READY
                 msg.drive.acceleration = 0.0
                 msg.drive.steering_angle = 0.0
                 #msg.drive.steering_angle_velocity = 0
