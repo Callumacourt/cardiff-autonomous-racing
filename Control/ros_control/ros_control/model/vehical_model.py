@@ -66,8 +66,6 @@ class Dynamics_Model():
         if self.state.directional_velocity==0:
             self.state.directional_velocity=0.01
         result = self.F_sideslip_stiffness * ((self.state.perpendicualar_velocity + self.lf * self.state.yaw_rate)/self.state.directional_velocity - steering_angle)
-
-        self.state.directional_velocity = 0
         
         return result
 
