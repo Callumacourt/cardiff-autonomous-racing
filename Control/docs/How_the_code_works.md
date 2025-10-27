@@ -33,7 +33,7 @@ CmdNode periodically runs timer_callback() which is where commands are published
 
 This class features lots of callback functions, if you don’t know what they you only really need to know that they are run automatically whenever we receive the right kind of message, or by the timer.
 
-#### timer_callback()
+#### `timer_callback()`
 
 ![control flow for timer_callback()](img/onTimerCallback.jpg)
 
