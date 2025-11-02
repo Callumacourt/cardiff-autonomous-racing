@@ -17,8 +17,8 @@ class Vehicle_State():
         self.yaw_angle = yaw_angle
         self.yaw_rate = yaw_rate
 
-        self.wheels_rpm = wheel_rpm
-        self.steering_angle_rad = steering_angle_rad
+        self.wheels_rpm = wheel_rpm#current average rpm of all 4 wheels
+        self.steering_angle_rad = steering_angle_rad#current steering angle of wheels in radians (+ is left)
     
     def __str__(self):
         return f"X pos: {self.xpos}\nY pos: {self.ypos}\nDirectional velocity: {self.directional_velocity}\nPerpendicular velocity: {self.perpendicualar_velocity}\nYaw angle: {self.yaw_angle}\nYaw rate: {self.yaw_rate}"
