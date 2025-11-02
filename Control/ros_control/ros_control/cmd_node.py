@@ -73,7 +73,7 @@ class CmdNode(Node):
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
 
-        self.mission_controler = Mission_Control(mpc_unit=self.mpc_unit,timer_period=self.timer_period,logger=self.get_logger)
+        self.mission_controler = Mission_Control(mpc_unit=self.mpc_unit,timer_period=self.timer_period,logger=self.get_logger,trigger_ebs=self.trigger_ebs)
 
         self.get_logger().info("Initialization complete")
 

@@ -4,7 +4,7 @@ from model.vehical_model import Vehicle_State
 from nav_msgs.msg import Path
 
 class Mission_Control:
-    def __init__(self,mpc_unit:Model_Predictive_Control,timer_period:float,logger) -> None:
+    def __init__(self,mpc_unit:Model_Predictive_Control,timer_period:float,logger,trigger_ebs) -> None:
         self.__static_A_flag = 0#flag that indicates the progress through the static inspection A mission
         self.__static_B_flag = 0#flag that indicates the progress through the static inspection B mission
         self.__autonomous_demo_flag = 0#flag that indicates the progress through the autonomous demonstration mission
@@ -18,6 +18,7 @@ class Mission_Control:
         self.timer_period = timer_period
 
         self.logger = logger
+        self.trigger_ebs = trigger_ebs
     
 
     def reset_mission_progress(self):
