@@ -42,8 +42,8 @@ class CmdNode(Node):
         
         self.as_state = CanState.AS_OFF#autonomous system state
         self.ami_state = CanState.AMI_NOT_SELECTED#autonomous mission indicator state
-        self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
-        self.wheels_rpm = 0#current average rpm of all 4 wheels
+        #self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
+        #self.wheels_rpm = 0#current average rpm of all 4 wheels
         self.WHEEL_RADIUS = 0.253
         
         self.static_A_flag = 0#flag that indicates the progress through the static inspection A mission
@@ -120,12 +120,12 @@ class CmdNode(Node):
         rf = wheels.rf_speed
         # in RADIANS
         steering = wheels.steering
-        self.wheels_rpm = (lb+lf+rb+rf)/4
+        self.current_state.wheels_rpm = (lb+lf+rb+rf)/4
         if self.eufs_sim:
-            self.wheels_rpm -= 500
-        self.steering_angle_rad = steering
+            self.current_state.wheels_rpm -= 500
+        self.current_state.steering_angle_rad = steering
         #import pdb; pdb.set_trace()
-        self.get_logger().info(f"Recieved: Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
+        self.get_logger().info(f"Recieved: Wheels_rpm: {self.current_state.wheels_rpm}, Steering_angle_rad: {self.current_state.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
             y_pos=0.0, # ????
@@ -243,7 +243,7 @@ class CmdNode(Node):
                     msg.drive.acceleration = commands.acceleration 
                     msg.drive.steering_angle = commands.steering_angle
                 except Exception as e:
-                    if self.current_state.directional_velocity < 5.0 or self.wheels_rpm < 200:
+                    if self.current_state.directional_velocity < 5.0 or self.current_state.wheels_rpm < 200:
                         pass
                 msg.drive.acceleration = 1.0 # make sure these are floats
                 msg.drive.steering_angle = 0.0
@@ -268,24 +268,24 @@ class CmdNode(Node):
                     self.get_logger().info("Sub task: Steer left")
 
                     msg.drive.steering_angle = 0.5
-                    if self.steering_angle_rad >= 0.41:
+                    if self.current_state.steering_angle_rad >= 0.41:
                         self.static_A_flag = 1
                 #steer all the way in the opposite direction
                 if self.static_A_flag == 1:
                     self.get_logger().info("Sub task: Steer right")
                     msg.drive.steering_angle = -0.5
-                    if self.steering_angle_rad <=-0.41:
+                    if self.current_state.steering_angle_rad <=-0.41:
                         self.static_A_flag = 2
                 #steering back to centre
                 if self.static_A_flag == 2:
                     self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
-                    if self.steering_angle_rad == 0.0:
+                    if self.current_state.steering_angle_rad == 0.0:
                         self.static_A_flag = 3
                 #wheels to 200rpm
                 if self.static_A_flag == 3:
                     self.get_logger().info("Sub task: Accelerate to 200rpm")
-                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
+                    self.get_logger().info(f"Current RPM: {self.current_state.wheels_rpm}")
                     if self.wheels_rpm < 200.0:
                         msg.drive.acceleration = 2.0
                     else:
@@ -293,10 +293,10 @@ class CmdNode(Node):
                 #stop car
                 if self.static_A_flag == 4:
                     self.get_logger().info("Sub task: Brake to zero")
-                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
+                    self.get_logger().info(f"Current RPM: {self.current_state.wheels_rpm}")
 
                     msg.drive.acceleration = -4.0
-                    if self.wheels_rpm <= 0.1:
+                    if self.current_state.wheels_rpm <= 0.1:
                         self.static_A_flag = 5
                 # set AS_FINISHED
                 if self.static_A_flag == 5 and not self.mission_complete:
@@ -313,7 +313,7 @@ class CmdNode(Node):
 
                 if self.static_B_flag == 0:
                     self.get_logger().info("Sub task: accelerate to 50rpm")
-                    if self.wheels_rpm < 50.0:
+                    if self.current_state.wheels_rpm < 50.0:
                         msg.drive.acceleration = 20.0
                     else:
                         self.static_B_flag = 1
@@ -330,17 +330,17 @@ class CmdNode(Node):
                 if self.autonomous_demo_flag == 0:
                     self.get_logger().info("Sub task: steering left")
                     msg.drive.steering_angle = 0.5
-                    if self.steering_angle_rad >= 0.41:
+                    if self.current_state.steering_angle_rad >= 0.41:
                         self.autonomous_demo_flag = 1
                 if self.autonomous_demo_flag == 1:
                     self.get_logger().info("Sub task: steering right")
                     msg.drive.steering_angle = -0.5
-                    if self.steering_angle_rad <= -0.41:
+                    if self.current_state.steering_angle_rad <= -0.41:
                         self.autonomous_demo_flag = 2
                 if self.autonomous_demo_flag == 2:
                     self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
-                    if self.steering_angle_rad == 0.0:
+                    if self.current_state.steering_angle_rad == 0.0:
                         self.autonomous_demo_flag = 3
                 #accellerate for 10m to at least 15kph
                 if self.autonomous_demo_flag == 3: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
@@ -354,7 +354,7 @@ class CmdNode(Node):
                 if self.autonomous_demo_flag == 4:
                     self.get_logger().info("Sub task: break to stop")
                     msg.drive.acceleration = -2.0
-                    if self.wheels_rpm == 0.0:
+                    if self.current_state.wheels_rpm == 0.0:
                         self.autonomous_demo_flag = 5
                         self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
                 #accellerate for a furthur 10m to at least 15kph
