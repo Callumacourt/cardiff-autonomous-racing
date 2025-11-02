@@ -178,7 +178,6 @@ class Mission_Control:
         self.__as_state = AS
 
     def get_message(self,current_state:Vehicle_State,desired_path:Path=None) -> tuple[float, float]:
-        self.logger().info("Test message A")
         if not self.__mission_complete:
             if self.__ami_state == CanState.AMI_ACCELERATION:
                 if self.__as_state == CanState.AS_DRIVING:
