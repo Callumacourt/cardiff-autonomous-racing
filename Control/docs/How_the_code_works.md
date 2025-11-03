@@ -15,7 +15,7 @@ This guide will not go into detail on how ros works, for that consider checking 
 
 ![class diagram](img/ros_control.jpg)
 
-ros_control is made up of 3 files – **MPC/main.py**, **model/vehical_model.py**, and **cmd_node.py**. At the time of writing this, these are the only files that are used – there are other files that were used at some point during the development process but no longer are.
+ros_control is made up of 4 files – **MPC/main.py**, **model/vehical_model.py**, **mission_control.py**, and **cmd_node.py**. At the time of writing this, these are the only files that are used – there are other files that were used at some point during the development process but no longer are.
 
 These files contain the classes shown above.
 
@@ -45,38 +45,7 @@ It does this by first creating an empty message, which will be filled out with c
 
 ![code preview](img/emptyMsgCodePreview.png)
 
-Next it is a condition to figure out what mission the car is on, as the car will need to do different things based on that.
 
-The missions that are currently built are ACCELERATION, DDT_INSPECTION_A(STATIC_INSPECTION_A), DDT_INSPECTION_B(STATIC_INSPECTION_B), and AUTONOMOUS_DEMO.
-
-After it knows what mission its on, it needs to know what state the car is in.
-
-The car has an inbuilt state machine:
-
-![state machine diagram](img/inBuiltStateMachineDiagram.png)
-
-The car will only respond to commands when it is in AS_DRIVING, additionally it will only transition into AS_DRIVING if all commands are 0.
-
-Once it knows that it is allowed to send non 0 commands, then it can decide what needs to be done.
-
-This is a different process for the static missions and autonomous demo than the main events, as the main events make use of the entire system, but the statics missions (and probably the autonomous demo) can be done without path_planning or perception.
-
-##### Statics
-
-The static missions make use of flags to track how far through the mission we are.
-Because this function is called many times a second but we only want certain parts of it to run based on mission progress, I thought this was a relatively simple way to do this.
-
-Because the code defaults to sending empty commands for safety reasons, every time timer_callback is called it must generate the correct command every time.
-
-Once the missions sub-goal has been achieved it increments the flag. Once the mission has been fully complete it sets the mission complete flag.
-
-##### Dynamics
-
-Currently the only dynamic mission built it acceleration.
-
-Dynamics do not currently use flags, but it would probably be a good idea in the future as some missions do have multiple stages, like how acceleration has to accelerate, but then also come to a stop in the correct place.
-
-Currently, to check if the sim was working, acceleration overrides commands from MPC with predetermined values – **this must be changed at some point**.
 
 #### `__init__()`
 
@@ -156,11 +125,6 @@ NOTE: **TESTING NEEDED**
 Sets the cars current state using self.mpc_unit.dynamics_model.set_state(state), after calculating the current state based on odometry.
 
 NOTE: currently this uses ONLY odometry to calculate the state, and not data directly from the car like wheel speeds.
-
-#### `reset_mission_progress()`
-
-Resets all the mission flags.
-Should only be used at the end of a mission, once mission_complete has been set to true.
 
 ### *Model_Predictive_Control*
 
@@ -302,6 +266,92 @@ Simply sets the attributes equal to the parameters
 Returns a string that represents the current object, including all it values.
 
 Usefull for debugging.
+
+### *Mission_Control*
+
+#### *Summary*
+
+A class that handles mission logic including what the cars current goal should be
+
+#### `__init__(mpc_unit, timer_period, logger, trigger_ebs)`
+
+Sets flags to their defualt values.
+
+`logger` should be the ros2 get_logger function, to allow this class to publish logs in the standard way
+
+`trigger_ebs` should be the function that triggers the ebs - doing it this way allows this module to trigger the ebs ros service without waiting for returning a message to cmd node
+
+#### `reset_mission_progress()`
+
+Resets all the mission flags.
+Should only be used at the end of a mission, once mission_complete has been set to true.
+
+#### `__acceleration(current_state, desired_path)`
+
+Handles the logic for the acceleration mission
+
+Asks the mpc_unit for commands
+
+CURRENTLY INCOMPLETE - car never stops, car doesn't know that it needs to stop within the orange cones
+
+#### `__skidpan()`
+
+NOT BUILT
+
+#### `__track_drive()`
+
+NOT BUILT
+
+#### `__autocross()`
+
+NOT BUILT
+
+#### `__static_A(current_state)`
+
+Handles the logic for the static inspection A mission (called DDT inspection A in eufs)
+
+The mission is split into several sub-goals, each signified using the `static_A_flag` flag.
+
+This is set up so that the car will keep trying to achieve the sub goal untill the flag is updated. 
+
+#### `__static_B(current_state)`
+
+Handles the logic for the static inspection B mission (called DDT inspection B in eufs)
+
+#### `get_message(current_state, desired_path)`
+
+This has a condition to figure out what mission the car is on, as the car will need to do different things based on that.
+
+The missions that are currently built are ACCELERATION, DDT_INSPECTION_A(STATIC_INSPECTION_A), DDT_INSPECTION_B(STATIC_INSPECTION_B), and AUTONOMOUS_DEMO.
+
+After it knows what mission its on, it needs to know what state the car is in.
+
+The car has an inbuilt state machine:
+
+![state machine diagram](img/inBuiltStateMachineDiagram.png)
+
+The car will only respond to commands when it is in AS_DRIVING, additionally it will only transition into AS_DRIVING if all commands are 0.
+
+Once it knows that it is allowed to send non 0 commands, then it can decide what needs to be done.
+
+This is a different process for the static missions and autonomous demo than the main events, as the main events make use of the entire system, but the statics missions (and probably the autonomous demo) can be done without path_planning or perception.
+
+##### Statics
+
+The static missions make use of flags to track how far through the mission we are.
+Because this function is called many times a second but we only want certain parts of it to run based on mission progress, I thought this was a relatively simple way to do this.
+
+Because the code defaults to sending empty commands for safety reasons, every time timer_callback is called it must generate the correct command every time.
+
+Once the missions sub-goal has been achieved it increments the flag. Once the mission has been fully complete it sets the mission complete flag.
+
+##### Dynamics
+
+Currently the only dynamic mission built it acceleration.
+
+Dynamics do not currently use flags, but it would probably be a good idea in the future as some missions do have multiple stages, like how acceleration has to accelerate, but then also come to a stop in the correct place.
+
+Currently, to check if the sim was working, acceleration overrides commands from MPC with predetermined values – **this must be changed at some point**.
 
 ## ros_can
 
