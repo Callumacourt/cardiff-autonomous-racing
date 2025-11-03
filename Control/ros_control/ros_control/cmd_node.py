@@ -69,11 +69,10 @@ class CmdNode(Node):
         self.get_logger().info("Odometry/slam subscription started")
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
-        self.mpc_unit = Model_Predictive_Control(self.timer_period,5.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
 
-        self.mission_controler = Mission_Control(mpc_unit=self.mpc_unit,timer_period=self.timer_period,logger=self.get_logger,trigger_ebs=self.trigger_ebs)
+        self.mission_controler = Mission_Control(mpc_unit=Model_Predictive_Control(self.timer_period,5.0),timer_period=self.timer_period,logger=self.get_logger,trigger_ebs=self.trigger_ebs)
 
         self.get_logger().info("Initialization complete")
 
@@ -199,7 +198,7 @@ class CmdNode(Node):
             yaw_angle=yaw,
             yaw_rate=a_velocity.z
             )
-        self.mpc_unit.dynamics_model.set_state(state)
+        self.mission_controler.mpc_unit.dynamics_model.set_state(state)
 
 
     #called periodically based on self.timer_period
