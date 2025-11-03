@@ -45,8 +45,6 @@ class CmdNode(Node):
         #self.wheels_rpm = 0#current average rpm of all 4 wheels
         self.WHEEL_RADIUS = 0.253
 
-        self.time_at_event_start = 0
-
         #set up subscribers to get data from car
         self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
         self.get_logger().info("ros_can/state subscriber started")
@@ -75,10 +73,6 @@ class CmdNode(Node):
         self.mission_controler = Mission_Control(mpc_unit=Model_Predictive_Control(self.timer_period,5.0),timer_period=self.timer_period,logger=self.get_logger,trigger_ebs=self.trigger_ebs)
 
         self.get_logger().info("Initialization complete")
-
-    def set_time_at_event_start(self,time):
-        if self.time_at_event_start == 0:
-            self.time_at_event_start = time
     
     def trigger_ebs(self):
         client = self.create_client(Trigger,"/ros_can/ebs")

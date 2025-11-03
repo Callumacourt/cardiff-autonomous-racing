@@ -55,10 +55,6 @@ Finnaly it sends all the messages to `/cmd`, `/state_machine/driving_flag`, and 
 
 This is the constructor and is what is run first when the program starts, all ros2 subscribers and publishers are initialised here, and all the mission flags are set to their default values.
 
-#### `set_time_at_event_start(time)`
-
-This function is supposed to record the time(in number of iterations of timer_callback) when a mission subtask begins, so that the time since that can be measured.
-
 #### `trigger_ebs()`
 
 This function triggers the cars emergency braking system by making a request to the ros2 /ros_can/ebs service.
@@ -291,6 +287,10 @@ Sets flags to their defualt values.
 
 Resets all the mission flags.
 Should only be used at the end of a mission, once mission_complete has been set to true.
+
+#### `set_time_at_event_start(time)`
+
+This function is supposed to record the time(in number of iterations of timer_callback) when a mission subtask begins, so that the time since that can be measured.
 
 #### `__acceleration(current_state, desired_path)`
 

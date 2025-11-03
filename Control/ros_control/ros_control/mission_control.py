@@ -19,6 +19,9 @@ class Mission_Control:
 
         self.logger = logger#ros2 logger passed through from cmd node
         self.trigger_ebs = trigger_ebs# trigger ebs function passed through from cmd node
+
+        self.i = 0
+        self.time_at_event_start = 0
     
 
     def reset_mission_progress(self):
@@ -179,6 +182,8 @@ class Mission_Control:
         self.__as_state = AS
 
     def get_message(self,current_state:Vehicle_State,desired_path:Path=None) -> tuple[float, float]:
+        self.i+=1
+
         if not self.__mission_complete:
             if self.__ami_state == CanState.AMI_ACCELERATION:
                 if self.__as_state == CanState.AS_DRIVING:
@@ -212,6 +217,9 @@ class Mission_Control:
     def get_mission_complete(self) -> bool:
         return self.__mission_complete
 
+    def set_time_at_event_start(self,time):
+        if self.time_at_event_start == 0:
+            self.time_at_event_start = time
 
 if __name__ == "__main__":
     mission_controler = Mission_Control()
