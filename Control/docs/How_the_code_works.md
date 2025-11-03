@@ -45,7 +45,9 @@ It does this by first creating an empty message, which will be filled out with c
 
 ![code preview](img/emptyMsgCodePreview.png)
 
+Next it asks the mission controller for the message it needs to send.
 
+Finnaly it sends all the messages to `/cmd`, `/state_machine/driving_flag`, and `/ros_can/mission_complete`
 
 #### `__init__()`
 
@@ -83,7 +85,7 @@ A callback function for the /ros_can/state ros subscription, this is run every t
 
 This comes from ros_can and contains the cars AS_STATE and AMI_STATE, or in other words: what state the cars built in state machine is in, and what mission the car is on.
 
-This function takes this data and records it in the `self.as_state` and `self.ami_state` attributes.
+This function takes this data and sends it to the mission controller using self.mission_controller.set_can_states(can state)
 
 #### `wheel_speeds_callback(msg)`
 
@@ -256,8 +258,10 @@ Includes:
 - perpendicular velocity
 - yaw angle
 - yaw rate
+- wheels average rpm
+- steering angle in radians
 
-#### `__init__(x_pos, y_pos, x_speed, y_speed, yaw_angle, yaw_rate)`
+#### `__init__(x_pos, y_pos, x_speed, y_speed, yaw_angle, yaw_rate, wheel_rpm, steering_angle_rad)`
 
 Simply sets the attributes equal to the parameters
 
@@ -271,7 +275,9 @@ Usefull for debugging.
 
 #### *Summary*
 
-A class that handles mission logic including what the cars current goal should be
+A class that handles mission logic including what the cars current goal should be.
+
+It is in charge of figuring out what message should be sent to the car at any given time.
 
 #### `__init__(mpc_unit, timer_period, logger, trigger_ebs)`
 
@@ -312,11 +318,21 @@ Handles the logic for the static inspection A mission (called DDT inspection A i
 
 The mission is split into several sub-goals, each signified using the `static_A_flag` flag.
 
-This is set up so that the car will keep trying to achieve the sub goal untill the flag is updated. 
+This is set up so that the car will keep trying to achieve the sub goal until the flag is updated.
 
 #### `__static_B(current_state)`
 
 Handles the logic for the static inspection B mission (called DDT inspection B in eufs)
+
+Set up in a similar way to static A
+
+#### `__autonomous_demo(current_state)`
+
+Handles the logic for the autonomous demo mission
+
+set up in a similar way to static A and B
+
+**NOTE:** currently broken as shown in issue #20
 
 #### `get_message(current_state, desired_path)`
 
@@ -347,7 +363,7 @@ Once the missions sub-goal has been achieved it increments the flag. Once the mi
 
 ##### Dynamics
 
-Currently the only dynamic mission built it acceleration.
+Currently the only dynamic mission built is acceleration.
 
 Dynamics do not currently use flags, but it would probably be a good idea in the future as some missions do have multiple stages, like how acceleration has to accelerate, but then also come to a stop in the correct place.
 

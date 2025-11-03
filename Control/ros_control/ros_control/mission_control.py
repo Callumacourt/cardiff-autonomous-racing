@@ -17,8 +17,8 @@ class Mission_Control:
         self.mpc_unit = mpc_unit
         self.timer_period = timer_period
 
-        self.logger = logger
-        self.trigger_ebs = trigger_ebs
+        self.logger = logger#ros2 logger passed through from cmd node
+        self.trigger_ebs = trigger_ebs# trigger ebs function passed through from cmd node
     
 
     def reset_mission_progress(self):
