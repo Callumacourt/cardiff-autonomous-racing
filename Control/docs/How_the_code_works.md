@@ -298,6 +298,8 @@ Handles the logic for the acceleration mission
 
 Asks the mpc_unit for commands
 
+NOTE: to test whether the mission would work (before integration with path planning), the commands are overriten, this needs to be changed!
+
 CURRENTLY INCOMPLETE - car never stops, car doesn't know that it needs to stop within the orange cones
 
 #### `__skidpan()`
