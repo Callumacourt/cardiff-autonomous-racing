@@ -3,6 +3,21 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 
+class Vehicle_Constants():
+    #milimetres
+    LENGTH = 2815
+    WIDTH = 1430
+    HEIGHT = 664
+    WHEELBASE = 1530
+    FRONT_TRACK = 1201
+    REAR_TRACK = 1201
+    #kilograms
+    WEIGHT = 300
+    WEIGHT_FRONT = 150
+    WEIGHT_REAR = 166
+    #radians
+    MAX_STEERING_ANGLE = 0.41999998688697815
+
 
 class Vehicle_State():
     def __init__(self,x_pos=0, y_pos=0, x_speed=0, y_speed=0, yaw_angle=0, yaw_rate=0, wheel_rpm=0,steering_angle_rad=0):
