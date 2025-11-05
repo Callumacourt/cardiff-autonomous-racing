@@ -66,6 +66,9 @@ class CmdNode(Node):
         self.odometry_sub = self.create_subscription(Odometry, "odometry/slam", self.odometry_callback, 10)
         self.get_logger().info("Odometry/slam subscription started")
 
+        #set up ebs client 
+        self.ebs_client = self.create_client(Trigger, "ros_can/ebs")
+
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
@@ -75,16 +78,25 @@ class CmdNode(Node):
         self.get_logger().info("Initialization complete")
     
     def trigger_ebs(self):
-        client = self.create_client(Trigger,"/ros_can/ebs")
-        while not client.wait_for_service(timeout_sec=1.0):
+        #client = self.create_client(Trigger,"/ros_can/ebs")
+        while not self.ebs_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for /ros_can/ebs service...')
+        
         req = Trigger.Request()
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('EBS triggered successfully!')
-        else:
-            self.get_logger().error('Failed to trigger EBS!')
+        future = self.ebs_client.call_async(req)
+        future.add_done_callback(self.ebs_response_callback)
+        #rclpy.spin_until_future_complete(self, future)
+        
+    
+    def ebs_response_callback(self, future:rclpy.Future):
+        try:
+            result = future.result()
+            if result.success:
+                self.get_logger().info('EBS triggered successfully!')
+            else:
+                self.get_logger().error(f'Failed to trigger EBS! {result.message}')
+        except Exception as e:
+            self.get_logger().error(f"Service call failed {e}")
 
     def odometry_callback(self,msg:Odometry):
         self.set_current_state(odometry=msg)
