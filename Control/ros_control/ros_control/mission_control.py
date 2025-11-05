@@ -2,12 +2,13 @@ from eufs_msgs.msg import CanState
 from MPC.main import Model_Predictive_Control
 from model.vehical_model import Vehicle_State
 from nav_msgs.msg import Path
+from mission_flag_enums import *
 
 class Mission_Control:
     def __init__(self,mpc_unit:Model_Predictive_Control,timer_period:float,logger,trigger_ebs) -> None:
-        self.__static_A_flag = 0#flag that indicates the progress through the static inspection A mission
-        self.__static_B_flag = 0#flag that indicates the progress through the static inspection B mission
-        self.__autonomous_demo_flag = 0#flag that indicates the progress through the autonomous demonstration mission
+        self.__static_A_flag = AFlag.LEFT#flag that indicates the progress through the static inspection A mission
+        self.__static_B_flag = BFlag.ACCELERATE#flag that indicates the progress through the static inspection B mission
+        self.__autonomous_demo_flag = demoFlag.LEFT#flag that indicates the progress through the autonomous demonstration mission
 
         self.__mission_complete = False
 
@@ -25,9 +26,9 @@ class Mission_Control:
     
 
     def reset_mission_progress(self):
-        self.__static_A_flag = 0
-        self.__static_B_flag = 0
-        self.__autonomous_demo_flag = 0
+        self.__static_A_flag = AFlag.LEFT
+        self.__static_B_flag = BFlag.ACCELERATE
+        self.__autonomous_demo_flag = demoFlag.LEFT
 
     def __acceleration(self,current_state:Vehicle_State,desired_path:Path) -> tuple[float, float]:
         acceleration = 0.0
@@ -67,45 +68,45 @@ class Mission_Control:
         acceleration = 0.0
         steering_angle = 0.0
         #steer all the way one way
-        if self.__static_A_flag == 0:
+        if self.__static_A_flag == AFlag.LEFT:
             self.logger().info("Sub task: Steer left")
 
             steering_angle = 0.5
             if current_state.steering_angle_rad >= 0.41:
-                self.__static_A_flag = 1
+                self.__static_A_flag = AFlag.RIGHT
         #steer all the way in the opposite direction
-        if self.__static_A_flag == 1:
+        if self.__static_A_flag == AFlag.RIGHT:
             self.logger().info("Sub task: Steer right")
             steering_angle = -0.5
             if current_state.steering_angle_rad <=-0.41:
-                self.__static_A_flag = 2
+                self.__static_A_flag = AFlag.CENTRE
         #steering back to centre
-        if self.__static_A_flag == 2:
+        if self.__static_A_flag == AFlag.CENTRE:
             self.logger().info("Sub task: Steer centre")
             steering_angle = 0.0
             if current_state.steering_angle_rad == 0.0:
-                self.__static_A_flag = 3
+                self.__static_A_flag = AFlag.ACCELERATE
         #wheels to 200rpm
-        if self.__static_A_flag == 3:
+        if self.__static_A_flag == AFlag.ACCELERATE:
             self.logger().info("Sub task: Accelerate to 200rpm")
             self.logger().info(f"Current RPM: {current_state.wheels_rpm}")
             if current_state.wheels_rpm < 200.0:
                 acceleration = 2.0
             else:
-                self.__static_A_flag = 4
+                self.__static_A_flag = AFlag.BRAKE
         #stop car
-        if self.__static_A_flag == 4:
+        if self.__static_A_flag == AFlag.BRAKE:
             self.logger().info("Sub task: Brake to zero")
             self.logger().info(f"Current RPM: {current_state.wheels_rpm}")
 
             acceleration = -4.0
             if current_state.wheels_rpm <= 0.1:
-                self.__static_A_flag = 5
+                self.__static_A_flag = AFlag.COMPLETE
         # set AS_FINISHED
-        if self.__static_A_flag == 5 and not self.__mission_complete:
+        if self.__static_A_flag == AFlag.COMPLETE and not self.__mission_complete:
             #set mission complete
             self.__mission_complete = True
-            self.__static_A_flag = 0
+            self.__static_A_flag = AFlag.LEFT
             #self.logger().info("Mission complete published!")
         
         return float(acceleration), float(steering_angle)
@@ -113,16 +114,16 @@ class Mission_Control:
     def __static_B(self,current_state:Vehicle_State) -> tuple[float, float]:
         acceleration = 0.0
         steering_angle = 0.0
-        if self.__static_B_flag == 0:
+        if self.__static_B_flag == BFlag.ACCELERATE:
             self.logger().info("Sub task: accelerate to 50rpm")
             if current_state.wheels_rpm < 50.0:
                 acceleration = 20.0
             else:
-                self.__static_B_flag = 1
+                self.__static_B_flag = BFlag.EMGCBRAKE
 
-        if self.__static_B_flag == 1:
+        if self.__static_B_flag == BFlag.EMGCBRAKE:
             self.trigger_ebs()
-            self.__static_B_flag = 0
+            self.__static_B_flag = BFlag.ACCELERATE
         
         return float(acceleration), float(steering_angle)
 
@@ -131,49 +132,49 @@ class Mission_Control:
         acceleration = 0.0
         steering_angle = 0.0
         #steering left and right and return to straight
-        if self.__autonomous_demo_flag == 0:
+        if self.__autonomous_demo_flag == demoFlag.LEFT:
             self.logger().info("Sub task: steering left")
             steering_angle = 0.5
             if current_state.steering_angle_rad >= 0.41:
-                self.__autonomous_demo_flag = 1
-        if self.__autonomous_demo_flag == 1:
+                self.__autonomous_demo_flag = demoFlag.RIGHT
+        if self.__autonomous_demo_flag == demoFlag.RIGHT:
             self.logger().info("Sub task: steering right")
             steering_angle = -0.5
             if current_state.steering_angle_rad <= -0.41:
-                self.__autonomous_demo_flag = 2
-        if self.__autonomous_demo_flag == 2:
+                self.__autonomous_demo_flag = demoFlag.CENTRE
+        if self.__autonomous_demo_flag == demoFlag.CENTRE:
             self.logger().info("Sub task: Steer centre")
             steering_angle = 0.0
             if current_state.steering_angle_rad == 0.0:
-                self.__autonomous_demo_flag = 3
+                self.__autonomous_demo_flag = demoFlag.ACCELERATE
         #accellerate for 10m to at least 15kph
-        if self.__autonomous_demo_flag == 3: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
+        if self.__autonomous_demo_flag == demoFlag.ACCELERATE: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
             self.set_time_at_event_start(self.i)
             self.logger().info("Sub task: accelleration for 10m")
             acceleration = 2.0
             #check if 10m have passed using suvat
             if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
-                self.__autonomous_demo_flag = 4
+                self.__autonomous_demo_flag = demoFlag.BRAKE
         #stop within a furthur 10m
-        if self.__autonomous_demo_flag == 4:
+        if self.__autonomous_demo_flag == demoFlag.BRAKE:
             self.logger().info("Sub task: break to stop")
             acceleration = -2.0
             if current_state.wheels_rpm == 0.0:
-                self.__autonomous_demo_flag = 5
+                self.__autonomous_demo_flag = demoFlag.REPEAT
                 self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
         #accellerate for a furthur 10m to at least 15kph
-        if self.__autonomous_demo_flag == 5:
+        if self.__autonomous_demo_flag == demoFlag.REPEAT:
             self.set_time_at_event_start(self.i)
             self.logger().info("Sub task: Accelerate a further 10m")
             acceleration = 2.0
             #check if 10m have passed using suvat
             if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
-                self.__autonomous_demo_flag = 6
+                self.__autonomous_demo_flag = demoFlag.EMGCBRAKE
                 self.time_at_event_start = 0
         #deploy ebs
-        if self.__autonomous_demo_flag == 6:
+        if self.__autonomous_demo_flag == demoFlag.EMGCBRAKE:
             self.trigger_ebs()
-            self.__autonomous_demo_flag = 0
+            self.__autonomous_demo_flag = demoFlag.LEFT
         
         return float(acceleration),float(steering_angle)
 
