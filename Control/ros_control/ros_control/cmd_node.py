@@ -46,9 +46,9 @@ class CmdNode(Node):
         self.wheels_rpm = 0#current average rpm of all 4 wheels
         self.WHEEL_RADIUS = 0.253
         
-        self.static_A_flag = 0#flag that indicates the progress through the static inspection A mission
-        self.static_B_flag = 0#flag that indicates the progress through the static inspection B mission
-        self.autonomous_demo_flag = 0#flag that indicates the progress through the autonomous demonstration mission
+        self.static_A_flag = AFlag.LEFT#flag that indicates the progress through the static inspection A mission
+        self.static_B_flag = BFlag.ACCELERATE#flag that indicates the progress through the static inspection B mission
+        self.autonomous_demo_flag = demoFlag.LEFT#flag that indicates the progress through the autonomous demonstration mission
 
         self.time_at_event_start = 0
 
@@ -207,9 +207,9 @@ class CmdNode(Node):
         self.mpc_unit.dynamics_model.set_state(state)
 
     def reset_mission_progress(self):
-        self.static_A_flag = 0
-        self.static_B_flag = 0
-        self.autonomous_demo_flag = 0
+        self.static_A_flag = AFlag.LEFT
+        self.static_B_flag = BFlag.ACCELERATE
+        self.autonomous_demo_flag = demoFlag.LEFT
 
     #called periodically based on self.timer_period
     def timer_callback(self):
@@ -264,45 +264,45 @@ class CmdNode(Node):
 
                 msg.drive.acceleration = 0.0
                 #steer all the way one way
-                if self.static_A_flag == 0:
+                if self.static_A_flag == AFlag.LEFT:
                     self.get_logger().info("Sub task: Steer left")
 
                     msg.drive.steering_angle = 0.5
                     if self.steering_angle_rad >= 0.41:
-                        self.static_A_flag = 1
+                        self.static_A_flag = AFlag.RIGHT
                 #steer all the way in the opposite direction
-                if self.static_A_flag == 1:
+                if self.static_A_flag == AFlag.RIGHT:
                     self.get_logger().info("Sub task: Steer right")
                     msg.drive.steering_angle = -0.5
                     if self.steering_angle_rad <=-0.41:
-                        self.static_A_flag = 2
+                        self.static_A_flag = AFlag.CENTRE
                 #steering back to centre
-                if self.static_A_flag == 2:
+                if self.static_A_flag == AFlag.CENTRE:
                     self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
                     if self.steering_angle_rad == 0.0:
-                        self.static_A_flag = 3
+                        self.static_A_flag = AFlag.ACCELERATE
                 #wheels to 200rpm
-                if self.static_A_flag == 3:
+                if self.static_A_flag == AFlag.ACCELERATE:
                     self.get_logger().info("Sub task: Accelerate to 200rpm")
                     self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
                     if self.wheels_rpm < 200.0:
                         msg.drive.acceleration = 2.0
                     else:
-                        self.static_A_flag = 4
+                        self.static_A_flag = AFlag.BRAKE
                 #stop car
-                if self.static_A_flag == 4:
+                if self.static_A_flag == AFlag.BRAKE:
                     self.get_logger().info("Sub task: Brake to zero")
                     self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
 
                     msg.drive.acceleration = -4.0
                     if self.wheels_rpm <= 0.1:
-                        self.static_A_flag = 5
+                        self.static_A_flag = AFlag.COMPLETE
                 # set AS_FINISHED
-                if self.static_A_flag == 5 and not self.mission_complete:
+                if self.static_A_flag == AFlag.COMPLETE and not self.mission_complete:
                     #set mission complete
                     self.mission_complete = True
-                    self.static_A_flag = 0
+                    self.static_A_flag = AFlag.LEFT
                     #self.get_logger().info("Mission complete published!")
                 
                 self.publisher_.publish(msg)     
@@ -311,65 +311,65 @@ class CmdNode(Node):
             if self.as_state == CanState.AS_DRIVING:
                 self.get_logger().info("AS_Driving")
 
-                if self.static_B_flag == 0:
+                if self.static_B_flag == BFlag.LEFT:
                     self.get_logger().info("Sub task: accelerate to 50rpm")
                     if self.wheels_rpm < 50.0:
                         msg.drive.acceleration = 20.0
                     else:
-                        self.static_B_flag = 1
+                        self.static_B_flag = BFlag.EMGCBRAKE
                     self.publisher_.publish(msg)
-                if self.static_B_flag == 1:
+                if self.static_B_flag == BFlag.EMGCBRAKE:
                     self.trigger_ebs()
-                    self.static_B_flag = 0
+                    self.static_B_flag = BFlag.ACCELERATE
         elif self.ami_state == CanState.AMI_AUTONOMOUS_DEMO: #autonomous demo
             self.get_logger().info("Autonomous demo")
             if self.as_state == CanState.AS_DRIVING:
                 self.get_logger().info("AS_Driving")
 
                 #steering left and right and return to straight
-                if self.autonomous_demo_flag == 0:
+                if self.autonomous_demo_flag == demoFlag.LEFT:
                     self.get_logger().info("Sub task: steering left")
                     msg.drive.steering_angle = 0.5
                     if self.steering_angle_rad >= 0.41:
-                        self.autonomous_demo_flag = 1
+                        self.autonomous_demo_flag = demoFlag.RIGHT
                 if self.autonomous_demo_flag == 1:
                     self.get_logger().info("Sub task: steering right")
                     msg.drive.steering_angle = -0.5
                     if self.steering_angle_rad <= -0.41:
-                        self.autonomous_demo_flag = 2
-                if self.autonomous_demo_flag == 2:
+                        self.autonomous_demo_flag = demoFlag.CENTRE
+                if self.autonomous_demo_flag == demoFlag.CENTRE:
                     self.get_logger().info("Sub task: Steer centre")
                     msg.drive.steering_angle = 0.0
                     if self.steering_angle_rad == 0.0:
-                        self.autonomous_demo_flag = 3
+                        self.autonomous_demo_flag = demoFlag.ACCELERATE
                 #accellerate for 10m to at least 15kph
-                if self.autonomous_demo_flag == 3: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
+                if self.autonomous_demo_flag == demoFlag.ACCELERATE: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
                     self.set_time_at_event_start(self.i)
-                    self.get_logger().info("Sub task: accelleration for 10m")
+                    self.get_logger().info("Sub task: acceleration for 10m")
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
                     if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
                         self.autonomous_demo_flag = 4
                 #stop within a furthur 10m
-                if self.autonomous_demo_flag == 4:
+                if self.autonomous_demo_flag == demoFlag.BRAKE:
                     self.get_logger().info("Sub task: break to stop")
                     msg.drive.acceleration = -2.0
                     if self.wheels_rpm == 0.0:
-                        self.autonomous_demo_flag = 5
+                        self.autonomous_demo_flag = demoFlag.REPEAT
                         self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
                 #accellerate for a furthur 10m to at least 15kph
-                if self.autonomous_demo_flag == 5:
+                if self.autonomous_demo_flag == demoFlag.REPEAT:
                     self.set_time_at_event_start(self.i)
                     self.get_logger().info("Sub task: Accelerate a further 10m")
                     msg.drive.acceleration = 2.0
                     #check if 10m have passed using suvat
                     if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
-                        self.autonomous_demo_flag = 6
+                        self.autonomous_demo_flag = demoFlag.EMGCBRAKE
                         self.time_at_event_start = 0
                 #deploy ebs
-                if self.autonomous_demo_flag == 6:
+                if self.autonomous_demo_flag == demoFlag.EMGCBRAKE:
                     self.trigger_ebs()
-                    self.autonomous_demo_flag = 0
+                    self.autonomous_demo_flag = demoFlag.LEFT
                 else:
                     self.publisher_.publish(msg)
         #else:
