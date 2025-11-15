@@ -20,7 +20,7 @@ class YOLOConeDetector3D(Node):
         self.device = self.setup_device()
         
         # Load YOLO model
-        model_path = 'best.pt'  # copied from yolo package
+        model_path = '/workspace/perception_ws/models/best.pt'  # Model copied by Dockerfile
         self.model = self.load_model(model_path)
         
         # Model parameters
@@ -41,6 +41,9 @@ class YOLOConeDetector3D(Node):
         
         self.get_logger().info("YOLO ConeDetector 3D node started.")
         self.publisher_ = self.create_publisher(String, 'detected_cones', 10)
+        
+        # Publisher for annotated image with bounding boxes
+        self.image_publisher_ = self.create_publisher(Image, 'yolo_annotated_image', 10)
         
         # Performance tracking
         self.inference_times = []
@@ -312,6 +315,14 @@ class YOLOConeDetector3D(Node):
         mask_line_y = int(height * self.mask_upper_fraction)
         cv2.line(rgb_image, (0, mask_line_y), (rgb_image.shape[1], mask_line_y), (255, 0, 0), 2)
         cv2.putText(rgb_image, "ROI Mask", (10, mask_line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        
+        # Publish annotated image for RVIZ visualization
+        try:
+            annotated_msg = self.bridge.cv2_to_imgmsg(rgb_image, encoding='bgr8')
+            annotated_msg.header = rgb_msg.header  # Preserve timestamp and frame_id
+            self.image_publisher_.publish(annotated_msg)
+        except Exception as e:
+            self.get_logger().error(f"Failed to publish annotated image: {e}")
         
         # Display image
         cv2.imshow("YOLO Cone Detection 3D", rgb_image)

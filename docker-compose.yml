@@ -1,0 +1,139 @@
+services:
+  # Mock data for testing
+  #mock_data:
+  #  build:
+  #    context: .
+#      dockerfile: docker/Dockerfile.planning
+#    container_name: racing_mock
+ #   environment:
+  #    - ROS_DOMAIN_ID=0
+   #   - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
+    #volumes:
+    #  - ./test_data:/workspace/test_data
+    #networks:
+    #  - racing_network
+    #entrypoint: ""
+    #command: >
+    #  bash -c "
+    #  source /opt/ros/humble/setup.bash &&
+    #  echo ' Starting mock data publishers...' &&
+    #  cd /workspace/test_data &&
+    #  python3 test_cone_published.py &
+    #  python3 mock_pose_publisher.py &
+    #  echo 'Publishers started, keeping container alive...' &&
+    #  sleep infinity
+    #  "
+
+  base:
+    build:
+      context: . 
+      dockerfile: docker/Dockerfile.base
+    container_name: racing_base
+    image: car-base
+    env_file:
+      - docker/shared.env
+    networks:
+      - racing_network
+    entrypoint: ""
+
+
+  # Perception system
+  perception:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.perception
+    container_name: racing_perception
+    image: car-perception
+    depends_on:
+      - base
+    env_file:
+      - docker/shared.env
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ./logs:/workspace/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    networks:
+      - racing_network
+    stdin_open: true
+    tty: true
+    entrypoint: ["/entrypoint.sh"]
+    command: >
+      bash -c "
+      echo ' Perception ready. Start nodes manually or run: ros2 run cone_detector cone_detector_node' &&
+      tail -f /dev/null
+      "
+
+  # Path planning
+  path_planning:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.planning
+    container_name: racing_planning
+    image: car-planning
+    depends_on:
+      - perception
+    env_file:
+      - docker/shared.env
+    volumes:
+      - ./logs:/workspace/logs
+    networks:
+      - racing_network
+    entrypoint: ""
+    command: >
+      bash -c "
+      echo '🛣️ Starting path planning...' &&
+      source /opt/ros/humble/setup.bash &&
+      source /workspace/planning_ws/install/setup.bash &&
+      /workspace/planning_ws/install/path_planning/bin/path_planner
+      "
+
+  # Control system
+  control:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.control
+    container_name: racing_control
+    image: car-control
+    depends_on:
+      - path_planning
+    env_file:
+      - docker/shared.env
+    volumes:
+      - ./Control:/workspace/Control
+      - ./Control/logs:/workspace/logs
+    #networks:
+    #  - racing_network
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    ports:      
+      - "7400:7400/udp"
+    entrypoint: ["/entrypoint.sh"]
+
+  eufs_sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.eufs_sim
+    container_name: racing_eufs_sim
+    image: car-eufs
+    depends_on:
+      - base
+      - perception
+    env_file:
+      - docker/shared.env
+    environment:
+      - DISPLAY=${DISPLAY}
+    networks:
+      - racing_network
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    stdin_open: true
+    tty: true
+
+networks:
+  racing_network:
+    driver: bridge
+
+volumes:
+  logs:

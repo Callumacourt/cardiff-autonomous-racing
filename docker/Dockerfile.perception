@@ -1,0 +1,111 @@
+# Perception module Dockerfile
+FROM car-base
+
+# --- ORB-SLAM3 Integration TODOs ---
+# TODO: Add proper ORB-SLAM3 build from source (C++)
+# TODO: Install Pangolin, DBoW2, and other dependencies for SLAM
+# TODO: Build Python bindings for ORB-SLAM3 with pybind11
+# TODO: Validate SLAM integration with ROS2 camera topics
+# TODO: Add SLAM launch and test scripts
+# --- End ORB-SLAM3 TODOs ---
+
+# Install additional dependencies for perception and ORB-SLAM3
+RUN apt-get update && apt-get install -y \
+    python3-numpy \
+    python3-scipy \
+    python3-matplotlib \
+    python3-opencv \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    libboost-all-dev \
+    libeigen3-dev \
+    libssl-dev \
+    libglew-dev \
+    libglfw3-dev \
+    libglu1-mesa-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libsuitesparse-dev \
+    libepoxy-dev \
+    ros-humble-cv-bridge \
+    ros-humble-vision-opencv \
+    ros-humble-image-transport \
+    ros-humble-sensor-msgs \
+    ros-humble-std-msgs \
+    ros-humble-geometry-msgs \
+    ros-humble-nav-msgs \
+    ros-humble-tf2 \
+    ros-humble-tf2-ros \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for YOLO and perception
+RUN pip3 install --no-cache-dir \
+    torch>=2.0.0 \
+    torchvision>=0.15.0 \
+    ultralytics>=8.0.0 \
+    opencv-python>=4.5.0 \
+    scipy \
+    matplotlib \
+    pyyaml
+
+# Install Python packages for YOLO and perception
+RUN pip3 install --no-cache-dir \
+    torch>=2.0.0 \
+    torchvision>=0.15.0 \
+    ultralytics>=8.0.0 \
+    opencv-python>=4.5.0 \
+    scipy \
+    matplotlib \
+    pyyaml
+
+# Install Pangolin (dependency for ORB_SLAM3 visualization)
+WORKDIR /opt
+RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git && \
+    cd Pangolin && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# Set up workspace
+WORKDIR /workspace
+RUN mkdir -p /workspace/perception_ws/src
+
+# Copy ORB_SLAM3 code (but skip building for now due to missing dependencies)
+# COPY perception_ws/ORB_SLAM3_mask /workspace/ORB_SLAM3
+# Note: ORB-SLAM3 build disabled - focus on YOLO cone detection first
+
+# Copy perception modules (skip slam_example - requires ORB-SLAM3)
+WORKDIR /workspace
+COPY perception_ws/src/cone_detector/ /workspace/perception_ws/src/cone_detector/
+COPY perception_ws/src/cone_mapper/ /workspace/perception_ws/src/cone_mapper/
+# COPY perception_ws/src/slam_example/ /workspace/perception_ws/src/slam_example/
+
+# Create models directory
+RUN mkdir -p /workspace/perception_ws/models
+
+# Copy trained YOLO model if it exists (optional)
+COPY best.pt /workspace/perception_ws/models/best.pt
+
+# Build perception workspace (without slam_example)
+WORKDIR /workspace/perception_ws
+RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
+echo "Building cone_detector..." && \
+colcon build --symlink-install --packages-select cone_detector --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+echo "cone_detector built successfully" && \
+echo "Building cone_mapper..." && \
+colcon build --symlink-install --packages-select cone_mapper --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+echo "cone_mapper built successfully"'
+
+# Copy entrypoint
+COPY docker/entrypoint_perception.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /workspace/perception_ws
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# Control module entrypoint script
+echo "🎮 Starting Control Module..."
+
+# Source ROS 2
+source /opt/ros/humble/setup.bash
+
+ip link show vcan0
+echo $eufs_simulate
+echo $RMW_IMPLEMENTATION
+
+#sudo modprobe vcan
+# Source our workspace
+if [ -f /workspace/control_ws/install/setup.bash ]; then
+    source /workspace/control_ws/install/setup.bash
+    sh /workspace/control_ws/src/ros_can/FS-AI-API/setup.sh
+    echo "✅ Control workspace sourced successfully"
+else
+    echo "❌ Control workspace not found, building..."
+    cd /workspace/control_ws
+    colcon build --symlink-install
+    source /workspace/control_ws/install/setup.bash
+fi
+
+# Start the control node
+echo "🚀 Launching ROS control node..."
+
+#check if we have eufs_simulate=true
+if [ $eufs_simulate != 1 ]; then
+    echo "not using simulator"
+    cd /workspace/control_ws
+    export PYTHONPATH="$PYTHONPATH:/workspace/control_ws/src/ros_control/ros_control"
+    date >> logs/control_output.log
+    ros2 run ros_control command_node >> logs/control_output.log 2>&1 &
+
+    date >> logs/ros_can_output.log 
+    ros2 launch ros_can ros_can.launch.py >> logs/ros_can_output.log 2>&1 &
+else
+    echo "using simulator"
+    export PYTHONPATH="$PYTHONPATH:/workspace/control_ws/src/ros_control/ros_control"
+    date >> logs/control_output.log
+    ros2 run ros_control command_node --ros-args -p eufs_simulate:=true >> logs/control_output.log 2>&1 &
+fi
+
+#rqt_graph
+
+sleep infinity
+
+# Try to run ros_can first (if eufs_msgs built successfully)
+#if ros2 launch ros_can ros_can.launch.py 2>/dev/null; then
+#    echo "✅ ROS CAN node started successfully"
+#elif ros2 run ros_control command_node 2>/dev/null; then
+#    echo "✅ ROS Control cmd_node started successfully"
+#else
+#    echo "🎮 Running simple mock control node for complete system simulation..."
+#    # Source the workspace first to ensure eufs_msgs is available
+#    source /workspace/control_ws/install/setup.bash
+#    # Run the Python script through ROS2 to access EUFS messages properly
+#    ros2 run ros_control simple_control_node
+#fi

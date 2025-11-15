@@ -1,0 +1,31 @@
+{
+    "[python]": {
+        "editor.formatOnType": true
+    },
+    "workbench.iconTheme": "vscode-icons",
+    "files.autoSave": "afterDelay",
+    "window.menuBarVisibility": "compact",
+    "workbench.colorTheme": "One Dark Pro",
+    "workbench.preferredDarkColorTheme": "Monokai Dimmed",
+    "security.workspace.trust.untrustedFiles": "open",
+    "vsicons.dontShowNewVersionMessage": true,
+    "window.autoDetectHighContrast": false,
+    "C_Cpp.default.includePath": [
+        "/opt/ros/galactic/include",
+        "../include",
+        "ros_can/include"
+    ],
+    "python.autoComplete.extraPaths": [
+        "/opt/ros/galactic/include",
+        "../src",
+        "../include"
+    ],
+    "git.confirmSync": false,
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
+    "ros.distro": "galactic"
+}
