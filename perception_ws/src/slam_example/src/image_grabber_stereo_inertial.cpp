@@ -1,87 +1,117 @@
 #include "slam_example/image_grabber_stereo_inertial.hpp"
-#include <cv_bridge/cv_bridge.h>
+
+#include <Eigen/Geometry>
+#include <chrono>
 #include <opencv2/core/core.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <stdexcept>
 
 /// Max size of IMU queue to prevent unbounded growth
 constexpr size_t MAX_IMU_QUEUE_SIZE = 200;
+
+ImageGrabberInertial::ImageGrabberInertial(ORB_SLAM3::System* pSLAM,
+                                           rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub,
+                                           rclcpp::Node::SharedPtr node,
+                                           const std::string& child_frame,
+                                           double max_sync_delta)
+    : m_SLAM(pSLAM),
+      odom_pub_(std::move(odom_pub)),
+      node_(std::move(node)),
+      logger_(node_ ? node_->get_logger() : rclcpp::get_logger("ImageGrabberInertial")),
+      tf_frame_(child_frame),
+      max_sync_delta_(max_sync_delta),
+      m_leftImage(nullptr),
+      m_rightImage(nullptr)
+{}
+
+void ImageGrabberInertial::SetupSubscriptions(const std::string& left_topic,
+                                              const std::string& right_topic,
+                                              const std::string& imu_topic,
+                                              double manual_sync_period_ms)
+{
+    if (!node_) {
+        throw std::runtime_error("ImageGrabberInertial: node pointer is null");
+    }
+
+    auto qos = rclcpp::SensorDataQoS();
+    left_subscription_ = node_->create_subscription<sensor_msgs::msg::Image>(
+        left_topic, qos,
+        std::bind(&ImageGrabberInertial::GrabLeft, this, std::placeholders::_1));
+
+    right_subscription_ = node_->create_subscription<sensor_msgs::msg::Image>(
+        right_topic, qos,
+        std::bind(&ImageGrabberInertial::GrabRight, this, std::placeholders::_1));
+
+    imu_subscription_ = node_->create_subscription<sensor_msgs::msg::Imu>(
+        imu_topic, rclcpp::SensorDataQoS(),
+        std::bind(&ImageGrabberInertial::GrabImu, this, std::placeholders::_1));
+
+    const auto manual_sync_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::duration<double, std::milli>(manual_sync_period_ms));
+
+    manual_sync_timer_ = node_->create_wall_timer(
+        manual_sync_duration,
+        std::bind(&ImageGrabberInertial::AttemptManualSync, this));
+}
 
 /// Stereo image callback, called when left and right images are approximately synchronized
 void ImageGrabberInertial::GrabStereo(
     const sensor_msgs::msg::Image::ConstSharedPtr &left,
     const sensor_msgs::msg::Image::ConstSharedPtr &right)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    // Log encodings for debug
-    RCLCPP_INFO(rclcpp::get_logger("GrabStereo"), "Left encoding: %s, Right encoding: %s",
-                left->encoding.c_str(), right->encoding.c_str());
-
-    // Validate encodings bgr8
-    if (left->encoding != "bgr8" || right->encoding != "bgr8") {
-        RCLCPP_WARN(rclcpp::get_logger("GrabStereo"), "Unexpected encodings: left=%s, right=%s",
-                    left->encoding.c_str(), right->encoding.c_str());
-        return;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_leftImage = left;
+        m_rightImage = right;
     }
-
-    // Check for empty image data
-    if (left->data.empty() || right->data.empty()) {
-        RCLCPP_WARN(rclcpp::get_logger("GrabStereo"), "Received empty image data");
-        return;
-    }
-
-    // Store latest image pair
-    m_leftImage = left;
-    m_rightImage = right;
-
-    // Try tracking if IMU data is available
     TryTrackStereoIfReady();
 }
 
 void ImageGrabberInertial::GrabLeft(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
-    RCLCPP_INFO(rclcpp::get_logger("GrabLeft"), "Got LEFT image at t=%.6f", 
-    rclcpp::Time(msg->header.stamp).seconds());
     std::lock_guard<std::mutex> lock(m_mutex);
     m_leftBuffer.push_back(msg);
     if (m_leftBuffer.size() > 30) m_leftBuffer.pop_front();
 }
 
 void ImageGrabberInertial::GrabRight(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
-    RCLCPP_INFO(rclcpp::get_logger("GrabRight"), "Got RIGHT image at t=%.6f", 
-    rclcpp::Time(msg->header.stamp).seconds());
     std::lock_guard<std::mutex> lock(m_mutex);
     m_rightBuffer.push_back(msg);
     if (m_rightBuffer.size() > 30) m_rightBuffer.pop_front();
 }
 
 void ImageGrabberInertial::AttemptManualSync() {
-    RCLCPP_INFO(rclcpp::get_logger("ManualSync"), 
-    "Attempting sync: left=%lu, right=%lu", m_leftBuffer.size(), m_rightBuffer.size());
+    sensor_msgs::msg::Image::ConstSharedPtr left;
+    sensor_msgs::msg::Image::ConstSharedPtr right;
 
-    std::lock_guard<std::mutex> lock(m_mutex);
-    const double max_time_diff = 0.05;  // 50 ms
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        while (!m_leftBuffer.empty() && !m_rightBuffer.empty()) {
+            const double t_left = rclcpp::Time(m_leftBuffer.front()->header.stamp).seconds();
+            const double t_right = rclcpp::Time(m_rightBuffer.front()->header.stamp).seconds();
+            const double dt = t_left - t_right;
 
-    while (!m_leftBuffer.empty() && !m_rightBuffer.empty()) {
-        double t_left = rclcpp::Time(m_leftBuffer.front()->header.stamp).seconds();
-        double t_right = rclcpp::Time(m_rightBuffer.front()->header.stamp).seconds();
+            if (std::abs(dt) < max_sync_delta_) {
+                left = m_leftBuffer.front();
+                right = m_rightBuffer.front();
+                m_leftBuffer.pop_front();
+                m_rightBuffer.pop_front();
+                break;
+            }
 
-        double dt = t_left - t_right;
-        RCLCPP_INFO(rclcpp::get_logger("ManualSync"),
-            "Matching left t=%.6f and right t=%.6f (dt=%.3f)", t_left, t_right, dt);
-
-
-        if (std::abs(dt) < max_time_diff) {
-            m_leftImage = m_leftBuffer.front();
-            m_rightImage = m_rightBuffer.front();
-            m_leftBuffer.pop_front();
-            m_rightBuffer.pop_front();
-            TryTrackStereoIfReady();
-            return;
+            if (dt < 0) {
+                m_leftBuffer.pop_front();
+            } else {
+                m_rightBuffer.pop_front();
+            }
         }
 
-        // Drop older frame
-        if (dt < 0) m_leftBuffer.pop_front();  // left older
-        else        m_rightBuffer.pop_front(); // right older
+        if (left && right) {
+            m_leftImage = left;
+            m_rightImage = right;
+        }
+    }
+
+    if (left && right) {
+        TryTrackStereoIfReady();
     }
 }
 
@@ -89,16 +119,9 @@ void ImageGrabberInertial::AttemptManualSync() {
 /// IMU callback: appends the new IMU message to the queue
 void ImageGrabberInertial::GrabImu(const sensor_msgs::msg::Imu::SharedPtr imu)
 {
-    
-    double timu = rclcpp::Time(imu->header.stamp).seconds();
-
-    RCLCPP_INFO(rclcpp::get_logger("GrabImu"), "Received IMU t = %.6f", timu);
-
-
     std::lock_guard<std::mutex> lock(m_mutex);
 
     if (m_imuQueue.size() > MAX_IMU_QUEUE_SIZE) {
-        RCLCPP_WARN(rclcpp::get_logger("GrabImu"), "IMU queue too large (%lu), discarding oldest", m_imuQueue.size());
         m_imuQueue.pop_front();
     }
 
@@ -109,88 +132,120 @@ void ImageGrabberInertial::GrabImu(const sensor_msgs::msg::Imu::SharedPtr imu)
 /// Attempts to track a stereo-inertial frame if stereo images and IMU data are ready
 void ImageGrabberInertial::TryTrackStereoIfReady()
 {
-    RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "Entered TryTrackStereoIfReady()");
-    std::lock_guard<std::mutex> lock(m_mutex);
+    sensor_msgs::msg::Image::ConstSharedPtr left;
+    sensor_msgs::msg::Image::ConstSharedPtr right;
 
-    if (!m_leftImage || !m_rightImage) {
-        RCLCPP_WARN(rclcpp::get_logger("TryTrackStereo"), "Missing stereo image(s)");
-        return;
-    }
-
-    // Convert ROS images to OpenCV
-    cv::Mat imLeft, imRight;
-    try {
-        imLeft = cv_bridge::toCvShare(m_leftImage, "bgr8")->image;
-        imRight = cv_bridge::toCvShare(m_rightImage, "bgr8")->image;
-
-        if (imLeft.empty() || imRight.empty()) {
-            RCLCPP_WARN(rclcpp::get_logger("TryTrackStereo"), "OpenCV image(s) empty after conversion");
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_leftImage || !m_rightImage) {
             return;
         }
-    } catch (const cv_bridge::Exception &e) {
-        RCLCPP_ERROR(rclcpp::get_logger("TryTrackStereo"), "cv_bridge conversion error: %s", e.what());
+        left = m_leftImage;
+        right = m_rightImage;
+    }
+
+    cv::Mat imLeft = ConvertToGray(left);
+    cv::Mat imRight = ConvertToGray(right);
+
+    if (imLeft.empty() || imRight.empty()) {
+        RCLCPP_WARN(logger_, "Converted stereo images are empty");
         return;
     }
 
-    // Timestamp of this stereo frame
-    double tframe = rclcpp::Time(m_leftImage->header.stamp).seconds();
+    const double tframe = rclcpp::Time(left->header.stamp).seconds();
+    std::vector<ORB_SLAM3::IMU::Point> imu_measurements;
 
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        imu_measurements = ExtractImuMeasurementsLocked(tframe);
+    }
 
-    RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "Tracking stereo frame at t = %.6f", tframe);
-    RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "IMU queue size before filtering: %lu", m_imuQueue.size());
+    if (imu_measurements.empty()) {
+        RCLCPP_WARN(logger_, "No IMU measurements available for stereo frame t=%.6f", tframe);
+        return;
+    }
 
-    RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "Stereo frame t = %.6f", tframe);
+    Sophus::SE3f pose;
+    try {
+        pose = m_SLAM->TrackStereo(imLeft, imRight, tframe, imu_measurements);
+    } catch (const std::exception &e) {
+        RCLCPP_ERROR(logger_, "Exception during ORB-SLAM3 tracking: %s", e.what());
+        return;
+    }
 
-    // Get all IMU messages before this timestamp
-    std::vector<ORB_SLAM3::IMU::Point> vImuMeasurements;
+    PublishPose(pose, left->header.stamp);
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_leftImage.reset();
+        m_rightImage.reset();
+    }
+}
+
+cv::Mat ImageGrabberInertial::ConvertToGray(const sensor_msgs::msg::Image::ConstSharedPtr& img) const
+{
+    try {
+        return cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8)->image;
+    } catch (const cv_bridge::Exception &e) {
+        RCLCPP_ERROR(logger_, "cv_bridge conversion error: %s", e.what());
+        return cv::Mat();
+    }
+}
+
+std::vector<ORB_SLAM3::IMU::Point> ImageGrabberInertial::ExtractImuMeasurementsLocked(double frame_time)
+{
+    constexpr double MAX_IMU_DELAY = 0.5;
+    std::vector<ORB_SLAM3::IMU::Point> measurements;
 
     while (!m_imuQueue.empty()) {
-        auto imu = m_imuQueue.front();
+        const auto imu = m_imuQueue.front();
+        const double timu = rclcpp::Time(imu->header.stamp).seconds();
 
-        double timu = rclcpp::Time(imu->header.stamp).seconds();
-
-        RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "  IMU t = %.6f", timu);
-        RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "Stereo frame t = %.6f", tframe);
-
-
-        const double max_imu_delay = 0.5;  // seconds
-        if (timu > tframe + max_imu_delay) {
-            RCLCPP_WARN(rclcpp::get_logger("TryTrackStereo"), 
-                "Skipping IMU t=%.6f as it's beyond frame time %.6f + %.2fs buffer",
-                timu, tframe, max_imu_delay);
+        if (timu > frame_time + MAX_IMU_DELAY) {
             break;
         }
 
+        const cv::Point3f acc(
+            imu->linear_acceleration.x,
+            imu->linear_acceleration.y,
+            imu->linear_acceleration.z);
 
-        cv::Point3f acc(imu->linear_acceleration.x,
-                        imu->linear_acceleration.y,
-                        imu->linear_acceleration.z);
+        const cv::Point3f gyro(
+            imu->angular_velocity.x,
+            imu->angular_velocity.y,
+            imu->angular_velocity.z);
 
-        cv::Point3f gyro(imu->angular_velocity.x,
-                        imu->angular_velocity.y,
-                        imu->angular_velocity.z);
-
-        vImuMeasurements.emplace_back(acc, gyro, timu);
-
-        m_imuQueue.pop_front();  // 
+        measurements.emplace_back(acc, gyro, timu);
+        m_imuQueue.pop_front();
     }
 
+    return measurements;
+}
 
-    if (vImuMeasurements.empty()) {
-        RCLCPP_WARN(rclcpp::get_logger("TryTrackStereo"), "No usable IMU measurements for frame at t = %.6f", tframe);
+void ImageGrabberInertial::PublishPose(const Sophus::SE3f& se3, const rclcpp::Time& stamp)
+{
+    if (!odom_pub_) {
         return;
     }
 
-    RCLCPP_INFO(rclcpp::get_logger("TryTrackStereo"), "Calling SLAM->TrackStereo...");
+    const Eigen::Vector3f t = se3.translation();
+    const Eigen::Quaternionf q(se3.rotationMatrix());
 
-    try {
-        m_SLAM->TrackStereo(imLeft, imRight, tframe, vImuMeasurements);
-    } catch (const std::exception &e) {
-        RCLCPP_ERROR(rclcpp::get_logger("TryTrackStereo"), "Exception during SLAM tracking: %s", e.what());
-    }
+    nav_msgs::msg::Odometry msg;
+    msg.header.stamp = stamp;
+    msg.header.frame_id = "odom";
+    msg.child_frame_id = tf_frame_;
 
-    m_leftImage.reset();
-    m_rightImage.reset();
+    msg.pose.pose.position.x = t.x();
+    msg.pose.pose.position.y = t.y();
+    msg.pose.pose.position.z = t.z();
+
+    msg.pose.pose.orientation.x = q.x();
+    msg.pose.pose.orientation.y = q.y();
+    msg.pose.pose.orientation.z = q.z();
+    msg.pose.pose.orientation.w = q.w();
+
+    odom_pub_->publish(msg);
 }
 
 

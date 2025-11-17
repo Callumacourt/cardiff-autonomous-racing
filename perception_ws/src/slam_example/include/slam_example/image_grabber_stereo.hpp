@@ -7,6 +7,8 @@
 #include <opencv2/opencv.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 
+#include <GL/glew.h>
+
 #include "System.h"  // ORB-SLAM3 core
 
 #include <queue>

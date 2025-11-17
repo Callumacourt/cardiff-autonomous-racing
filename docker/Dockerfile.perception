@@ -15,12 +15,22 @@ RUN apt-get update && apt-get install -y \
     python3-scipy \
     python3-matplotlib \
     python3-opencv \
+    python3-dev \
     build-essential \
     cmake \
     git \
     wget \
     libboost-all-dev \
     libeigen3-dev \
+    libtbb-dev \
+    libopencv-dev \
+    libgoogle-glog-dev \
+    libgflags-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libgtk-3-dev \
+    pkg-config \
     libssl-dev \
     libglew-dev \
     libglfw3-dev \
@@ -31,6 +41,7 @@ RUN apt-get update && apt-get install -y \
     libswscale-dev \
     libsuitesparse-dev \
     libepoxy-dev \
+    ros-humble-message-filters \
     ros-humble-cv-bridge \
     ros-humble-vision-opencv \
     ros-humble-image-transport \
@@ -41,16 +52,6 @@ RUN apt-get update && apt-get install -y \
     ros-humble-tf2 \
     ros-humble-tf2-ros \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Python packages for YOLO and perception
-RUN pip3 install --no-cache-dir \
-    torch>=2.0.0 \
-    torchvision>=0.15.0 \
-    ultralytics>=8.0.0 \
-    opencv-python>=4.5.0 \
-    scipy \
-    matplotlib \
-    pyyaml
 
 # Install Python packages for YOLO and perception
 RUN pip3 install --no-cache-dir \
@@ -84,7 +85,37 @@ RUN mkdir -p /workspace/perception_ws/src
 WORKDIR /workspace
 COPY perception_ws/src/cone_detector/ /workspace/perception_ws/src/cone_detector/
 COPY perception_ws/src/cone_mapper/ /workspace/perception_ws/src/cone_mapper/
-# COPY perception_ws/src/slam_example/ /workspace/perception_ws/src/slam_example/
+COPY perception_ws/src/slam_example/ /workspace/perception_ws/src/slam_example/
+
+# Fetch ORB-SLAM3 sources (visual SLAM backend)
+ARG ORB_SLAM3_REPO=https://github.com/UZ-SLAMLab/ORB_SLAM3.git
+ARG ORB_SLAM3_REF=master
+WORKDIR /workspace/perception_ws
+RUN git clone --recursive ${ORB_SLAM3_REPO} ORB_SLAM3 && \
+    cd ORB_SLAM3 && git checkout ${ORB_SLAM3_REF}
+
+# Overlay any local tweaks (optional)
+COPY perception_ws/ORB_SLAM3_mask/ /tmp/ORB_SLAM3_overlay/
+RUN if [ -d /tmp/ORB_SLAM3_overlay ]; then \
+        cp -a /tmp/ORB_SLAM3_overlay/. /workspace/perception_ws/ORB_SLAM3/; \
+    fi && rm -rf /tmp/ORB_SLAM3_overlay
+
+# Patch non-standard chrono usage in sample apps
+RUN /bin/bash -c 'set -euo pipefail; \
+    files=$(grep -R -l "std::chrono::monotonic_clock" /workspace/perception_ws/ORB_SLAM3 || true); \
+    if [ -n "$files" ]; then \
+        echo "Patching std::chrono::monotonic_clock in"; \
+        echo "$files"; \
+        echo "$files" | xargs -r sed -i "s/std::chrono::monotonic_clock/std::chrono::steady_clock/g"; \
+    else \
+        echo "No std::chrono::monotonic_clock references found"; \
+    fi'
+
+# Build ORB-SLAM3 library (needed by slam_example)
+WORKDIR /workspace/perception_ws/ORB_SLAM3
+RUN /bin/bash -c 'chmod +x build.sh build_ros.sh && \
+    ./build.sh'
+
 
 # Create models directory
 RUN mkdir -p /workspace/perception_ws/models
@@ -92,15 +123,12 @@ RUN mkdir -p /workspace/perception_ws/models
 # Copy trained YOLO model if it exists (optional)
 COPY best.pt /workspace/perception_ws/models/best.pt
 
-# Build perception workspace (without slam_example)
+# Build perception workspace (includes slam_example once ORB-SLAM3 is available)
 WORKDIR /workspace/perception_ws
 RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
-echo "Building cone_detector..." && \
-colcon build --symlink-install --packages-select cone_detector --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-echo "cone_detector built successfully" && \
-echo "Building cone_mapper..." && \
-colcon build --symlink-install --packages-select cone_mapper --cmake-args -DCMAKE_BUILD_TYPE=Release && \
-echo "cone_mapper built successfully"'
+echo "Building perception packages (cone_detector, cone_mapper, slam_example)..." && \
+colcon build --symlink-install --packages-select cone_detector cone_mapper slam_example --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+echo "Perception packages built successfully"'
 
 # Copy entrypoint
 COPY docker/entrypoint_perception.sh /entrypoint.sh
