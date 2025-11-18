@@ -1,1 +1,0 @@
-ament_cmake_symlink_install_targets("TARGET_FILES" "/home/callum/cardiff-autonomous-racing/perception_ws/build_slam_example/slam_example/orb_slam3_stereo_inertial" "TARGETS" "orb_slam3_stereo_inertial" "DESTINATION" "lib/slam_example")

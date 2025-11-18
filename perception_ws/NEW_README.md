@@ -15,7 +15,10 @@ docker compose up -d base perception eufs_sim
 docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector" &
 
 # 4. Launch ORB-SLAM3 (viewer pops up ~10s later)
-docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true"
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
+
+#   (EUFS publishes IMU data on `/imu/data`; if you need to double-check, run
+#    `docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic hz /imu/data --window 5'` before launching SLAM.)
 
 # 5. RVIZ opens automatically showing the track
 # Add these displays in RVIZ:

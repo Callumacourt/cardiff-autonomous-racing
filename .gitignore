@@ -1,5 +1,6 @@
 build/
 install/
 log/
+logs/
 .vscode/
 Control/logs/

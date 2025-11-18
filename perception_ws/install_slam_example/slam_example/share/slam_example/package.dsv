@@ -1,5 +1,0 @@
-source;share/slam_example/local_setup.bash
-source;share/slam_example/local_setup.dsv
-source;share/slam_example/local_setup.ps1
-source;share/slam_example/local_setup.sh
-source;share/slam_example/local_setup.zsh
