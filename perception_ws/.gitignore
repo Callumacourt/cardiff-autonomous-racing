@@ -18,7 +18,6 @@ eigen/
 
 
 # Trajectory outputs
-ORB_SLAM3_src/evaluation/MH_01_easy/
 CameraTrajectory.txt
 
 .DS_Store
