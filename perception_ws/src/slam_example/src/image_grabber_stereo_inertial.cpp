@@ -33,6 +33,7 @@ void ImageGrabberInertial::SetupSubscriptions(const std::string& left_topic,
     }
 
     auto qos = rclcpp::SensorDataQoS();
+    RCLCPP_INFO(logger_, "Subscribing to stereo topics: left='%s', right='%s'", left_topic.c_str(), right_topic.c_str());
     left_subscription_ = node_->create_subscription<sensor_msgs::msg::Image>(
         left_topic, qos,
         std::bind(&ImageGrabberInertial::GrabLeft, this, std::placeholders::_1));
@@ -41,6 +42,7 @@ void ImageGrabberInertial::SetupSubscriptions(const std::string& left_topic,
         right_topic, qos,
         std::bind(&ImageGrabberInertial::GrabRight, this, std::placeholders::_1));
 
+    RCLCPP_INFO(logger_, "Subscribing to IMU topic: '%s'", imu_topic.c_str());
     imu_subscription_ = node_->create_subscription<sensor_msgs::msg::Imu>(
         imu_topic, rclcpp::SensorDataQoS(),
         std::bind(&ImageGrabberInertial::GrabImu, this, std::placeholders::_1));
@@ -51,6 +53,8 @@ void ImageGrabberInertial::SetupSubscriptions(const std::string& left_topic,
     manual_sync_timer_ = node_->create_wall_timer(
         manual_sync_duration,
         std::bind(&ImageGrabberInertial::AttemptManualSync, this));
+
+    RCLCPP_INFO(logger_, "Manual sync timer running every %.2f ms", manual_sync_period_ms);
 }
 
 /// Stereo image callback, called when left and right images are approximately synchronized

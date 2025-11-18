@@ -80,6 +80,8 @@ target_link_libraries(orb_slam3_stereo
   -lGLEW
 )
 
+target_compile_definitions(orb_slam3_stereo PRIVATE HAVE_GLEW)
+
 ament_target_dependencies(orb_slam3_stereo
   rclcpp
   sensor_msgs
@@ -108,6 +110,8 @@ target_link_libraries(orb_slam3_stereo_inertial
   -lGLU
   -lGLEW
 )
+
+target_compile_definitions(orb_slam3_stereo_inertial PRIVATE HAVE_GLEW)
 
 ament_target_dependencies(orb_slam3_stereo_inertial
   rclcpp
