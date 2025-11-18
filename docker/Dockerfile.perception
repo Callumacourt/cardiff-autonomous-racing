@@ -29,6 +29,12 @@ RUN apt-get update && apt-get install -y \
     libavformat-dev \
     libavutil-dev \
     libswscale-dev \
+    pkg-config \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libgtk-3-dev \
+    libcanberra-gtk3-module\
     libsuitesparse-dev \
     libepoxy-dev \
     ros-humble-cv-bridge \
@@ -72,13 +78,35 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git && \
     make install && \
     ldconfig
 
+#Install OpenCV (C++) for ORB_SLAM3 - adds to compile time, and may not be necessary as dpkg has libopencv packages.
+# RUN git clone https://github.com/opencv/opencv.git && \
+#     cd opencv && \
+#     git checkout 4.11.0 && \
+#     mkdir build && \
+#     cd build && \
+#     cmake -D CMAKE_BUILD_TYPE=Release \
+#         -D BUILD_EXAMPLES=OFF \
+#         -D BUILD_DOCS=OFF \
+#         -D BUILD_PERF_TESTS=OFF \
+#         -D BUILD_TESTS=OFF \
+#         -D CMAKE_INSTALL_PREFIX=/usr/local \
+#         .. && \
+#     make -j$(nproc) && \
+#     make install 
+
 # Set up workspace
 WORKDIR /workspace
 RUN mkdir -p /workspace/perception_ws/src
 
 # Copy ORB_SLAM3 code (but skip building for now due to missing dependencies)
-# COPY perception_ws/ORB_SLAM3_mask /workspace/ORB_SLAM3
-# Note: ORB-SLAM3 build disabled - focus on YOLO cone detection first
+COPY perception_ws/ORB_SLAM3_src /workspace/ORB_SLAM3
+RUN echo "export ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}:/workspace/ORB_SLAM3/Examples/ROS" >> ~/.bashrc && \
+    cd ORB_SLAM3 && \
+    sed -i 's/++11/++14/g' CMakeLists.txt && \
+    chmod +x build.sh && \
+    ./build.sh && \
+    chmod +x build_ros.sh && \
+    ./build_ros.sh
 
 # Copy perception modules (skip slam_example - requires ORB-SLAM3)
 WORKDIR /workspace

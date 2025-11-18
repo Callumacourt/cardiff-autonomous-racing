@@ -72,7 +72,20 @@ docker exec racing_perception ps aux | grep YOLO_cone_detector
 
 # Verify topics
 docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic list | grep -E '(yolo|zed|cones)'"
+
+#Check ORB_SLAM3 installed correctly
+docker exec -it racing_perception bash -c "cd /workspace/ORB_SLAM3/Examples/Monocular && ./mono_euroc ../../Vocabulary/ORBvoc.txt EuRoC.yaml ../../evaluation/MH_01_easy EuRoC_TimeStamps/MH01.txt"
 ```
+mono_euroc.cc example modified (line 83, true/false) to run offline test on MH_01_easy data with viewer enabled/disabled:
+<ol>
+<li> Download ASL format for MH_01_easy from [ETHZ](https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) </li>
+<li>Extract and put the MH_01_easy directory in the ORB_SLAM3_src/evaluation directory</li>
+<li> in ORB_SLAM3_src/Examples/Monocular, run code above.</li>
+</ol>
+
+- With viewer disabled - no errors, no output whilst processing, until creates output files.
+- With viewer enabled - some errors, should still process the images.
+
 
 ## Rebuilding After Code Changes
 

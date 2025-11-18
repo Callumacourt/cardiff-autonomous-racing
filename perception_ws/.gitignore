@@ -10,6 +10,7 @@ __pycache__/
 
 # Third-party libraries
 ORB_SLAM3/
+ORB_SLAM3_mask/
 ORB_SLAM3_backup/
 ORB_SLAM3_stereo_inertial/
 Pangolin/
@@ -17,6 +18,7 @@ eigen/
 
 
 # Trajectory outputs
+ORB_SLAM3_src/evaluation/MH_01_easy/
 CameraTrajectory.txt
 
 .DS_Store
