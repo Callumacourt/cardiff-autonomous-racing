@@ -14,29 +14,14 @@ docker compose up -d base perception eufs_sim
 # 3. Start YOLO detector
 docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector" &
 
-# 4. RVIZ opens automatically showing the track
+# 4. Launch ORB-SLAM3 (viewer pops up ~10s later)
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true"
+
+# 5. RVIZ opens automatically showing the track
 # Add these displays in RVIZ:
 #   - Add → By topic → /ground_truth/cones → ConeArrayWithCovariance (simulator ground truth)
 #   - Add → By topic → /yolo_annotated_image → Image (camera feed with bounding boxes)
 ```
-
-## ORB Vocabulary (required for SLAM)
-
-The ORB-SLAM3 nodes need the 145 MB `ORBvoc.txt` dictionary. Download it once into the repo and either rebuild the perception image or copy it into an already running container:
-
-```bash
-cd /home/callum/cardiff-autonomous-racing
-./scripts/fetch_orb_vocabulary.sh
-
-# Option A: rebuild the perception image so the new file is baked in
-docker compose build perception
-
-# Option B: copy it into the current container without rebuilding
-docker cp perception_ws/src/slam_example/config/ORBvoc.txt \
-       racing_perception:/workspace/perception_ws/src/slam_example/config/ORBvoc.txt
-```
-
-If you update the vocabulary later, rerun the script and rebuild/copy again so the container sees the new file.
 
 ## What's Running
 
@@ -122,7 +107,7 @@ docker compose down --rmi all
 
 ## ORB-SLAM3 (Stereo) Workflow
 
-The perception image now installs Pangolin, clones `perception_ws/ORB_SLAM3` from upstream, and compiles the ROS 2 wrapper `slam_example`. Make sure you have run `./scripts/fetch_orb_vocabulary.sh` (see section above) so the launch files can load `config/ORBvoc.txt`.
+The perception image now installs Pangolin, clones `perception_ws/ORB_SLAM3` from upstream, and compiles the ROS 2 wrapper `slam_example`.
 
 1. Pangolin dependencies + ROS `message_filters` are installed via `apt`
 2. Pangolin is built and installed to `/usr/local/lib/libpangolin.so`
@@ -148,6 +133,7 @@ docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 launch 
 ```
 
 - Adds `/zed/imu/data` to the subscriptions
+- Defaults to `/imu/data` (EUFS publishes here); override with `imu_topic:=/zed/imu/data` if you have a ZED IMU stream
 - Update topic names inside the launch file if your sensor differs
 
 ### Topic checks
@@ -161,25 +147,6 @@ docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic echo 
 ```
 
 If the Pangolin window fails to open, rerun `xhost +local:docker` before starting the stack.
-
-If Pangolin stays on “waiting for images” and `ros2 node info /orb_slam3_stereo_inertial` only lists the IMU subscription, rebuild `slam_example` (`colcon build --packages-select slam_example`) to pick up the persistent camera subscription fix introduced in January 2025.
-
-### Pose logging to CSV
-
-```bash
-# (Terminal 1) Run SLAM as shown above
-
-# (Terminal 2) Record /odometry/slam into /workspace/logs/slam_poses.csv
-docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 run slam_example slam_pose_logger \\
-       --ros-args -p log_path:=/workspace/logs/slam_poses.csv \\
-                                           -p odom_topic:=/odometry/slam \\
-                                           -p flush_every:=10"
-
-# Inspect the CSV header + first few rows
-docker exec racing_perception bash -c "head -n5 /workspace/logs/slam_poses.csv"
-```
-
-The logger creates directories automatically, appends if `append:=true`, and flushes every `flush_every` messages (default 10). Combine it with `ros2 topic hz /odometry/slam` to make sure SLAM is publishing before relying on the CSV.
 
 ## Architecture
 
