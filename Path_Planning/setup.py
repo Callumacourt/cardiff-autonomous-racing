@@ -12,7 +12,11 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/launch.py']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'numpy',
+        'scipy',
+    ],
     zip_safe=True,
     maintainer='callumacourt',
     maintainer_email='callumacourtt@gmail.com',

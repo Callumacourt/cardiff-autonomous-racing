@@ -12,6 +12,7 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped as PathPose
 import numpy as np
 from typing import List, Tuple
+import message_filters
 
 class PathPlannerNode(Node):
     def __init__(self):
@@ -25,8 +26,29 @@ class PathPlannerNode(Node):
         self.centerline = []
         self.last_goal_idx = 0
         
-        # Subscribe to car pose (adjust topic name as needed)
-        self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
+        # Subscribe to car pose and sync with cone detections
+        pose_sub = message_filters.Subscriber(PoseStamped, '/car_pose')
+        cones_sub = message_filters.Subscriber(String, '/detected_cones')
+        
+        ts = message_filters.TimeSynchronizer([pose_sub, cones_sub], queue_size=10)
+        ts.registerCallback(self.synchronized_callback)
+        
+        # Publisher for the planned path
+        self.path_pub = self.create_publisher(Path, '/planned_path', 10)
+        
+        # Timer for main planning loop (5 Hz)
+        self.timer = self.create_timer(0.2, self.main_loop)
+        
+        # Statistics
+        self.detection_count = 0
+        self.last_detection_time = self.get_clock().now()
+        
+        self.get_logger().info('Path Planner Node initialized')
+    
+    def synchronized_callback(self, pose_msg, cones_msg):
+        """Handle synchronized pose and cone detection messages"""
+        self.pose_callback(pose_msg)
+        self.yolo_cones_callback(cones_msg)
         
         # Subscribe to YOLO cone detections
         self.create_subscription(String, '/detected_cones', self.yolo_cones_callback, 10)

@@ -1,35 +1,28 @@
-FROM car-base
+FROM cardiff-racing:base
 
-# Create proper package structure
-RUN mkdir -p /workspace/planning_ws/src/path_planning
+# Install Python dependencies needed by the package
+RUN pip3 install --no-cache-dir \
+    numpy \
+    scipy
 
-# Copy path planning files
+# Create workspace
+RUN mkdir -p /workspace/planning_ws/src
+
+# Copy the entire Path_Planning directory with correct structure (underscore not space)
 COPY ["Path_Planning/", "/workspace/planning_ws/src/path_planning/"]
 
-# Create resource directory for ROS2 package
+# Ensure resource file exists (in case it wasn't copied)
 RUN mkdir -p /workspace/planning_ws/src/path_planning/resource && \
     touch /workspace/planning_ws/src/path_planning/resource/path_planning
 
-# Fix the setup.py to remove non-existent launch files
-RUN sed -i "s|('share/' + package_name + '/launch', \['launch/full_simulation_launch.py'\]),||g" /workspace/planning_ws/src/path_planning/setup.py
-
-# Create package structure
-RUN mkdir -p /workspace/planning_ws/src/path_planning/path_planning && \
-    touch /workspace/planning_ws/src/path_planning/path_planning/__init__.py && \
-    cp /workspace/planning_ws/src/path_planning/integration.py /workspace/planning_ws/src/path_planning/path_planning/ && \
-    cp /workspace/planning_ws/src/path_planning/rrt_star.py /workspace/planning_ws/src/path_planning/path_planning/
-
-# Build planning workspace
+# Build the package
 WORKDIR /workspace/planning_ws
 RUN . /opt/ros/humble/setup.sh && \
     colcon build --symlink-install
 
-# Copy entrypoint
+# Copy entrypoint and fix line endings
 COPY docker/entrypoint_planning.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-RUN dos2unix /entrypoint.sh
-
-WORKDIR /workspace
+RUN dos2unix /entrypoint.sh && \
+    chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -10,6 +10,7 @@
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>message_filters</depend>
   <export><build_type>ament_python</build_type></export>
 </package>
 "@ | Out-File -FilePath "Path Planning/package.xml" -Encoding UTF8 -NoNewline
