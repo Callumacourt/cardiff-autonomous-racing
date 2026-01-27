@@ -1,28 +1,4 @@
 services:
-  # Mock data for testing
-  #mock_data:
-  #  build:
-  #    context: .
-#      dockerfile: docker/Dockerfile.planning
-#    container_name: racing_mock
- #   environment:
-  #    - ROS_DOMAIN_ID=0
-   #   - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
-    #volumes:
-    #  - ./test_data:/workspace/test_data
-    #networks:
-    #  - racing_network
-    #entrypoint: ""
-    #command: >
-    #  bash -c "
-    #  source /opt/ros/humble/setup.bash &&
-    #  echo ' Starting mock data publishers...' &&
-    #  cd /workspace/test_data &&
-    #  python3 test_cone_published.py &
-    #  python3 mock_pose_publisher.py &
-    #  echo 'Publishers started, keeping container alive...' &&
-    #  sleep infinity
-    #  "
 
   base:
     build:
@@ -53,6 +29,9 @@ services:
     volumes:
       - ./logs:/workspace/logs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # mounting source code so code changes don't need a rebuild
+      - ./perception_ws/src:/workspace/perception_ws/src:rw
+      - ./best.pt:/workspace/perception_ws/models/best.pt:ro
     networks:
       - racing_network
     stdin_open: true
@@ -128,6 +107,7 @@ services:
       - racing_network
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./Control:/workspace/Control:rw
     stdin_open: true
     tty: true
 

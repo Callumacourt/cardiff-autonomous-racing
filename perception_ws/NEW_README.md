@@ -2,7 +2,8 @@
 
 YOLOv8 cone detection running on EUFS Formula Student simulation.
 
-## Quick Start - Do this in terminal to run YOLO with eufs sim
+# ----- Linux ----- #
+## Follow this to run the perception stack with eufs sim
 
 ```bash
 # 1. Allow GUI
@@ -106,17 +107,8 @@ docker compose down
 
 # Stop and remove images (clean slate)
 docker compose down --rmi all
+
 ```
-
-## ORB-SLAM3 (Stereo) Workflow
-
-The perception image now installs Pangolin, clones `perception_ws/ORB_SLAM3` from upstream, and compiles the ROS 2 wrapper `slam_example`.
-
-1. Pangolin dependencies + ROS `message_filters` are installed via `apt`
-2. Pangolin is built and installed to `/usr/local/lib/libpangolin.so`
-3. `./build.sh` runs inside `perception_ws/ORB_SLAM3`
-4. `slam_example` is built against the freshly compiled ORB library
-
 ### Launching the stereo pipeline
 
 ```bash

@@ -1,14 +1,13 @@
 # --- Imports ---
 import rclpy
 from rclpy.node import Node
-
-from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-
 import cv2
 import numpy as np
 import message_filters  # Sync RGB + depth
-from std_msgs.msg import String
+from std_msgs.msg import Header;
+from sensor_msgs.msg import Image, PointCloud2, PointField
+from sensor_msgs_py import point_cloud2
 
 # --- Node Definition ---
 class ConeDetector3D(Node):
@@ -24,9 +23,12 @@ class ConeDetector3D(Node):
         self.ts = message_filters.ApproximateTimeSynchronizer([self.rgb_sub, self.depth_sub], queue_size=10, slop=0.1)
         self.ts.registerCallback(self.image_callback)
 
+        # Publishers
         self.get_logger().info("ConeDetector 3D node started.")
-        self.publisher_ = self.create_publisher(String, 'detected_cones', 10)
         self.image_pub = self.create_publisher(Image, 'cone_detection_image', 10)
+
+        # Cone detection publication (subscribe here!!)
+        self.cone_pc = self.create_publisher(PointCloud2, 'cone_cloud/local', 10)
 
     def image_callback(self, rgb_msg, depth_msg):
         rgb_image = self.bridge.imgmsg_to_cv2(rgb_msg, 'bgr8')
@@ -83,9 +85,24 @@ class ConeDetector3D(Node):
 
         # Publish message
         if message_lines:
-            msg = String()
-            msg.data = "\n".join(message_lines)
-            self.publisher_.publish(msg)
+            points = []
+            for line in message_lines:
+                x, y, z, lab = line.split(',')
+                points.append((float(x), float(y), float(z), float(lab)))
+
+            header = Header()
+            header.stamp = self.get_clock().now().to_msg()
+            header.frame_id = 'map'
+
+            fields = [
+                PointField('x', 0, PointField.FLOAT32, 1),
+                PointField('y', 4, PointField.FLOAT32, 1),
+                PointField('z', 8, PointField.FLOAT32, 1),
+                PointField('confidence', 12, PointField.FLOAT32, 1),
+            ]
+
+            msg = point_cloud2.create_cloud(header, fields, points)
+            self.cone_pc.publish(msg)
 
         # Publish annotated image
         annotated_msg = self.bridge.cv2_to_imgmsg(rgb_image, 'bgr8')

@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Improved Cone Mapper with CORRECT coordinate transformation
-"""
-
 # --- Integration TODOs ---
 # TODO: Subscribe to /detected_cones (YOLO output)
 # TODO: Subscribe to /odometry/slam (ORB-SLAM3 output)
@@ -19,6 +14,8 @@ from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs_py import point_cloud2
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -212,10 +209,10 @@ class ImprovedConeMapperNode(Node):
         self.vehicle_position = (0.0, 0.0)
         
         # Subscriptions
-        self.cone_sub = self.create_subscription(
-            String, '/detected_cones', self.cone_callback, 10)
         self.pose_sub = self.create_subscription(
             Odometry, '/odometry/slam', self.pose_callback, 10)
+        self.cone_pc_sub = self.create_subscription(
+            PointCloud2, '/cone_cloud/local', self.cone_pc_callback, 10)
         
         # Publishers
         self.local_map_pub = self.create_publisher(String, '/cone_map/local', 10)
@@ -266,74 +263,70 @@ class ImprovedConeMapperNode(Node):
         
         self.vehicle_position = (pos.x, pos.y)
     
-    def cone_callback(self, msg):
-        """Handle cone detections with CORRECT coordinate transformation"""
+    def cone_callback(self, pc_msg: PointCloud2):
+        """Handle PointCloud2 cone detections (points in camera frame).
+        """
         if self.latest_pose is None:
             return
-        
+
         start_time = time.time()
-        
         try:
-            # Get vehicle pose components
+            # Prepare vehicle/world transform from latest SLAM pose
             vehicle_pos = self.latest_pose['position']
             vehicle_quat = self.latest_pose['orientation']
-            
-            # Create rotation matrix from vehicle/robot to world
             rot = R.from_quat(vehicle_quat)
-            R_world_vehicle = rot.as_matrix()  # Rotation from vehicle to world
+            R_world_vehicle = rot.as_matrix()
             t_world_vehicle = vehicle_pos.reshape(3, 1)
-            
-            # Process each detection
-            lines = msg.data.strip().split('\n')
+
+            # Read points from PointCloud2. Field order expected: x,y,z,confidence
+            points_iter = point_cloud2.read_points(pc_msg,
+                                                   field_names=('x', 'y', 'z', 'confidence'),
+                                                   skip_nans=True)
+
             valid_detections = 0
-            
-            for line in lines:
-                parts = line.strip().split(',')
-                if len(parts) != 4:
+            for p in points_iter:
+                try:
+                    x_cam, y_cam, z_cam, label_f = p
+                except Exception:
                     continue
-                
-                x_cam, y_cam, z_cam, color = map(float, parts)
-                
-                # Validate camera coordinates
-                if (np.isnan(x_cam) or np.isnan(y_cam) or np.isnan(z_cam) or
-                    np.isinf(x_cam) or np.isinf(y_cam) or np.isinf(z_cam)):
+
+                # Validate inputs
+                if (not np.isfinite(x_cam) or not np.isfinite(y_cam) or not np.isfinite(z_cam)):
                     self.stats['coordinate_warnings'] += 1
                     continue
-                
-                # Additional validation - reject unreasonable values
-                if abs(x_cam) > 50 or abs(y_cam) > 50 or z_cam < 0.1 or z_cam > 30:
+
+                # Bounds check
+                if abs(x_cam) > 50 or abs(y_cam) > 50 or z_cam < 0.01 or z_cam > 50:
                     self.stats['coordinate_warnings'] += 1
                     continue
-                
-                # CORRECT COORDINATE TRANSFORMATION
-                # Step 1: Convert camera coordinates to robot/vehicle coordinates
-                # ZED Camera: X=right, Y=down, Z=forward
-                # Robot Frame: X=forward, Y=left, Z=up
-                x_robot = z_cam    # Camera Z (forward) -> Robot X (forward)
-                y_robot = -x_cam   # Camera X (right) -> Robot -Y (left)
-                z_robot = -y_cam   # Camera Y (down) -> Robot -Z (up)
-                
-                # Step 2: Transform robot coordinates to world coordinates
+
+                # Convert camera -> robot coordinates
+                x_robot = z_cam    # camera Z -> robot X (forward)
+                y_robot = -x_cam   # camera X (right) -> robot -Y (left)
+                z_robot = -y_cam   # camera Y (down) -> robot -Z (up)
+
                 X_robot = np.array([[x_robot], [y_robot], [z_robot]])
                 X_world = R_world_vehicle @ X_robot + t_world_vehicle
-                
-                # Extract world coordinates
-                x_world, y_world, z_world = X_world[0, 0], X_world[1, 0], X_world[2, 0]
-                
-                # Add to local buffer
-                self.local_buffer.add_cone_detection(x_world, y_world, z_world, int(color))
-                
+
+                x_world, y_world, z_world = float(X_world[0, 0]), float(X_world[1, 0]), float(X_world[2, 0])
+
+                # Label: detectors currently put label in the 'confidence' field.
+                try:
+                    color = int(label_f)
+                except Exception:
+                    color = 0
+
+                # Add to buffer (confidence left as default)
+                self.local_buffer.add_cone_detection(x_world, y_world, z_world, color)
+
                 self.stats['total_detections'] += 1
                 valid_detections += 1
-            
-            # Log detection summary
+
             if valid_detections > 0:
                 self.get_logger().info(f'Processed {valid_detections} valid cone detections')
-            
-            # Update local buffer
+
+            # Update buffer and try promote to global map
             self.local_buffer.update_frame()
-            
-            # Try to promote high-confidence cones to global map
             promoted_count = 0
             for cone in self.local_buffer.get_high_confidence_cones():
                 if self.global_map.try_add_cone(cone):
@@ -341,18 +334,19 @@ class ImprovedConeMapperNode(Node):
                     promoted_count += 1
                     self.get_logger().info(
                         f'Added cone {cone["id"]} to global map at '
-                        f'({cone["x"]:.1f}, {cone["y"]:.1f}) with confidence {cone["confidence"]:.2f}')
-            
+                        f'({cone["x"]:.1f}, {cone["y"]:.1f}) with confidence {cone["confidence"]:.2f}'
+                    )
+
             if promoted_count > 0:
                 self.get_logger().info(f'Promoted {promoted_count} cones to global map')
-            
+
             # Track processing time
             self.stats['processing_times'].append(time.time() - start_time)
             if len(self.stats['processing_times']) > 100:
                 self.stats['processing_times'] = self.stats['processing_times'][-100:]
-            
+
         except Exception as e:
-            self.get_logger().error(f'Error processing cone detections: {e}')
+            self.get_logger().error(f'Error processing cone pointcloud: {e}')
     
     def publish_local_map(self):
         """Publish local cone map"""
