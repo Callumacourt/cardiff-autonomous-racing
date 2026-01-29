@@ -47,9 +47,8 @@ docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && 
 - `/ground_truth/cones` - Ground truth cone positions from EUFS simulator
 - `/zed/left/image_rect_color` - Camera feed (640x480)
 - `/zed/depth/image_raw` - Depth image for 3D positioning
-- `/detected_cones` - YOLO detections with 3D coordinates (String format)
+- `/cone_pc` - PointCloud of cone detections
 - `/yolo_annotated_image` - Camera image with bounding boxes drawn
-- `/cone_cloud/local` - Throttled PointCloud2 of planner-friendly cones
 - `/perception/cones` - EUFS `ConeArray` published by the detector
 - `/odometry/slam` - Pose estimate from ORB-SLAM3 stereo node
 
@@ -155,7 +154,7 @@ If the Pangolin window fails to open, rerun `xhost +local:docker` before startin
 - `docker/Dockerfile.eufs_sim` - Builds EUFS simulation with RViz plugins
 - `docker/entrypoint_perception.sh` - Sources Humble/workspace and exports ORB paths
 - `docker/entrypoint_eufs_sim.sh` - Launches sim with `launch_group:=default`
-- `perception_ws/src/cone_detector/cone_detector/YOLO_cone_detector.py` - Main detector node (YOLO + depth)
+- `perception_ws/src/cone_detector/cone_detector/YOLO_cone_detector.py` - Cone detector node (YOLO + depth)
 - `perception_ws/src/slam_example` - ROS 2 wrapper publishing `/odometry/slam`
 - `perception_ws/ORB_SLAM3` - Upstream ORB-SLAM3 sources (built via `./build.sh`)
 - `perception_ws/src/slam_example/config/ORBvoc.txt` - Vocabulary shipped inside the image

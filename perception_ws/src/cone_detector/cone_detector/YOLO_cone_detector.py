@@ -11,7 +11,6 @@ import torch
 from ultralytics import YOLO  
 
 
-# --- Node Definition ---
 class YOLOConeDetector3D(Node):
     def __init__(self):
         super().__init__('yolo_cone_detector_3d_node')
@@ -187,8 +186,6 @@ class YOLOConeDetector3D(Node):
     
     def get_cone_color_from_class(self, class_id, model=None):
         """Map YOLO class ID to cone color and label"""
-
-        # 0: blue_cone, 1: large_orange_cone, 2: orange_cone, 3: unknown_cone, 4: yellow_cone
         class_mapping = {
             0: ("blue", 0),              # blue_cone
             1: ("large_orange", 2),      # large_orange_cone -> treat as orange
@@ -246,10 +243,11 @@ class YOLOConeDetector3D(Node):
         header.frame_id = frame_id
 
         fields = [
-            PointField('x', 0, PointField.FLOAT32, 1),
-            PointField('y', 4, PointField.FLOAT32, 1),
-            PointField('z', 8, PointField.FLOAT32, 1),
-            PointField('confidence', 12, PointField.FLOAT32, 1),
+            PointField(name = 'x', offset =  0, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'y', offset = 4, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'z', offset = 8, datatype = PointField.FLOAT32, count = 1),
+            # 0: blue_cone, 1: large_orange_cone, 2: orange_cone, 3: unknown_cone, 4: yellow_cone
+            PointField(name ='label', offset = 12, datatype = PointField.FLOAT32, count = 1),
         ]
 
         pc_msg = point_cloud2.create_cloud(header, fields, points)

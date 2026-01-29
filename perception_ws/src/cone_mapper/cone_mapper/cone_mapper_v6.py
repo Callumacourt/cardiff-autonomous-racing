@@ -264,19 +264,27 @@ class ImprovedConeMapperNode(Node):
         self.vehicle_position = (pos.x, pos.y)
     
     def cone_callback(self, pc_msg: PointCloud2):
-        """Handle PointCloud2 cone detections (points in camera frame).
-        """
-        if self.latest_pose is None:
+        """Handle PointCloud2 cone detections (points in camera frame or already in map)."""
+        frame_id = getattr(pc_msg.header, 'frame_id', '')
+        has_pose = (self.latest_pose is not None)
+
+        # If we don't have a SLAM pose, only accept clouds already in map/odom
+        if not has_pose and frame_id not in ('map', 'odom', 'world'):
+            self.get_logger().debug("No SLAM pose and cloud not in map/odom; skipping")
             return
 
         start_time = time.time()
         try:
-            # Prepare vehicle/world transform from latest SLAM pose
-            vehicle_pos = self.latest_pose['position']
-            vehicle_quat = self.latest_pose['orientation']
-            rot = R.from_quat(vehicle_quat)
-            R_world_vehicle = rot.as_matrix()
-            t_world_vehicle = vehicle_pos.reshape(3, 1)
+            # Prepare vehicle/world transform if we have a pose
+            if has_pose:
+                vehicle_pos = self.latest_pose['position']
+                vehicle_quat = self.latest_pose['orientation']
+                rot = R.from_quat(vehicle_quat)
+                R_world_vehicle = rot.as_matrix()
+                t_world_vehicle = vehicle_pos.reshape(3, 1)
+            else:
+                R_world_vehicle = None
+                t_world_vehicle = None
 
             # Read points from PointCloud2. Field order expected: x,y,z,confidence
             points_iter = point_cloud2.read_points(pc_msg,
@@ -291,7 +299,7 @@ class ImprovedConeMapperNode(Node):
                     continue
 
                 # Validate inputs
-                if (not np.isfinite(x_cam) or not np.isfinite(y_cam) or not np.isfinite(z_cam)):
+                if not (np.isfinite(x_cam) and np.isfinite(y_cam) and np.isfinite(z_cam)):
                     self.stats['coordinate_warnings'] += 1
                     continue
 
@@ -300,25 +308,27 @@ class ImprovedConeMapperNode(Node):
                     self.stats['coordinate_warnings'] += 1
                     continue
 
-                # Convert camera -> robot coordinates
-                x_robot = z_cam    # camera Z -> robot X (forward)
-                y_robot = -x_cam   # camera X (right) -> robot -Y (left)
-                z_robot = -y_cam   # camera Y (down) -> robot -Z (up)
+                # If cloud already in world/map frame, use values directly
+                if frame_id in ('map', 'odom', 'world'):
+                    x_world, y_world, z_world = float(x_cam), float(y_cam), float(z_cam)
+                else:
+                    # require SLAM pose to transform camera->robot->world
+                    if not has_pose:
+                        continue
+                    x_robot = z_cam    # camera Z -> robot X (forward)
+                    y_robot = -x_cam   # camera X -> robot -Y (left)
+                    z_robot = -y_cam   # camera Y -> robot -Z (up)
+                    X_robot = np.array([[x_robot], [y_robot], [z_robot]])
+                    X_world = R_world_vehicle @ X_robot + t_world_vehicle
+                    x_world, y_world, z_world = float(X_world[0, 0]), float(X_world[1, 0]), float(X_world[2, 0])
 
-                X_robot = np.array([[x_robot], [y_robot], [z_robot]])
-                X_world = R_world_vehicle @ X_robot + t_world_vehicle
-
-                x_world, y_world, z_world = float(X_world[0, 0]), float(X_world[1, 0]), float(X_world[2, 0])
-
-                # Label: detectors currently put label in the 'confidence' field.
+                # Label parsing
                 try:
                     color = int(label_f)
                 except Exception:
                     color = 0
 
-                # Add to buffer (confidence left as default)
                 self.local_buffer.add_cone_detection(x_world, y_world, z_world, color)
-
                 self.stats['total_detections'] += 1
                 valid_detections += 1
 
@@ -347,6 +357,10 @@ class ImprovedConeMapperNode(Node):
 
         except Exception as e:
             self.get_logger().error(f'Error processing cone pointcloud: {e}')
+
+    def cone_pc_callback(self, pc_msg: PointCloud2):
+        # wrapper to keep subscription name used in __init__
+        self.cone_callback(pc_msg)
     
     def publish_local_map(self):
         """Publish local cone map"""
