@@ -60,6 +60,12 @@ IMU.NoiseAcc: 0.10
 IMU.GyroWalk: 1.0e-5
 IMU.AccWalk: 2.0e-4
 
+IMU.InsertKFUncertainty: 0.1 
+IMU.Frequency: 70
+
+# Relax synchronization constraints
+TrackingIMUGyroBias.Threshold: 20  
+
 
 
 

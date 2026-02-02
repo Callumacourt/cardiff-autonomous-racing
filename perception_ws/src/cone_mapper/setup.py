@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-		'cone_mapper_v6 = cone_mapper.cone_mapper_v6:main',
+		'cone_mapper = cone_mapper.cone_mapper:main',
         ],
     },
 )
