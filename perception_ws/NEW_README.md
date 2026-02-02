@@ -16,7 +16,7 @@ docker compose up -d base perception eufs_sim
 docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
 
 # 4. Start cone mapper (background)
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper_v6"
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
 
 # 5. Launch ORB-SLAM3 (interactive - viewer pops up ~10s later)
 docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
@@ -38,12 +38,6 @@ docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && 
 - **RVIZ** - Opens automatically showing track, car, and ground truth cones
 - **ORB-SLAM3** - Pangolin + ORB library built from source, wrapped by `slam_example`
 
-## System Requirements
-
-- Docker and Docker Compose
-- X11 display server
-- ~20GB disk space for images
-- GPU recommended (falls back to CPU automatically)
 
 ## Key Topics
 

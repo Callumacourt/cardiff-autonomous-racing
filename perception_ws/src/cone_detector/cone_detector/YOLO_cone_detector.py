@@ -365,7 +365,7 @@ class YOLOConeDetector3D(Node):
         cv2.line(rgb_image, (0, mask_line_y), (rgb_image.shape[1], mask_line_y), (255, 0, 0), 2)
         cv2.putText(rgb_image, "ROI Mask", (10, mask_line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         
-        # Publish annotated image for RVIZ visualization
+        # Publish annotated image for RVIZ visualisation
         try:
             annotated_msg = self.bridge.cv2_to_imgmsg(rgb_image, encoding='bgr8')
             annotated_msg.header = rgb_msg.header  # Preserve timestamp and frame_id
