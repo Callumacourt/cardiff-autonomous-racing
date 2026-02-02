@@ -22,7 +22,6 @@ else
 fi
 
 echo " Perception system ready. Available nodes:"
-echo "  - ros2 run cone_detector cone_detector_node"
 echo "  - ros2 run cone_mapper cone_mapper_node"
 echo "  - ros2 run slam_example orb_slam3_stereo"
 echo "  - ros2 run slam_example orb_slam3_stereo_inertial"

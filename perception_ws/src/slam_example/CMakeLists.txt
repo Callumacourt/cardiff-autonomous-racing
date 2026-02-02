@@ -80,8 +80,6 @@ target_link_libraries(orb_slam3_stereo
   -lGLEW
 )
 
-target_compile_definitions(orb_slam3_stereo PRIVATE HAVE_GLEW)
-
 ament_target_dependencies(orb_slam3_stereo
   rclcpp
   sensor_msgs
@@ -111,8 +109,6 @@ target_link_libraries(orb_slam3_stereo_inertial
   -lGLEW
 )
 
-target_compile_definitions(orb_slam3_stereo_inertial PRIVATE HAVE_GLEW)
-
 ament_target_dependencies(orb_slam3_stereo_inertial
   rclcpp
   sensor_msgs
@@ -122,21 +118,6 @@ ament_target_dependencies(orb_slam3_stereo_inertial
 )
 
 install(TARGETS orb_slam3_stereo_inertial
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-add_executable(slam_pose_logger
-  src/slam_pose_logger.cpp
-)
-
-target_compile_features(slam_pose_logger PUBLIC cxx_std_17)
-
-ament_target_dependencies(slam_pose_logger
-  rclcpp
-  nav_msgs
-)
-
-install(TARGETS slam_pose_logger
   DESTINATION lib/${PROJECT_NAME}
 )
 

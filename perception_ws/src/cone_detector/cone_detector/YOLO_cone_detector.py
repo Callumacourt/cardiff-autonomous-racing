@@ -1,16 +1,16 @@
-# --- Imports ---
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, PointCloud2, PointField
+from sensor_msgs_py import point_cloud2
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
-import message_filters  # Sync RGB + depth
-from std_msgs.msg import String
+import message_filters  
+from std_msgs.msg import String, Header
 import torch
-from ultralytics import YOLO  # YOLOv8
+from ultralytics import YOLO  
 
-# --- Node Definition ---
+
 class YOLOConeDetector3D(Node):
     def __init__(self):
         super().__init__('yolo_cone_detector_3d_node')
@@ -40,14 +40,16 @@ class YOLOConeDetector3D(Node):
         self.ts.registerCallback(self.image_callback)
         
         self.get_logger().info("YOLO ConeDetector 3D node started.")
-        self.publisher_ = self.create_publisher(String, 'detected_cones', 10)
-        
         # Publisher for annotated image with bounding boxes
         self.image_publisher_ = self.create_publisher(Image, 'yolo_annotated_image', 10)
+        # Cone detection publication (subscribe here!!)
+        self.cone_pc = self.create_publisher(PointCloud2, 'cone_cloud/local', 10)
         
         # Performance tracking
         self.inference_times = []
         self.frame_count = 0
+        
+        self.depth_saved = False  
     
     def setup_device(self):
         """Setup computing device with comprehensive GPU detection"""
@@ -182,13 +184,11 @@ class YOLOConeDetector3D(Node):
     
     def get_cone_color_from_class(self, class_id, model=None):
         """Map YOLO class ID to cone color and label"""
-
-        # 0: blue_cone, 1: large_orange_cone, 2: orange_cone, 3: unknown_cone, 4: yellow_cone
         class_mapping = {
             0: ("blue", 0),              # blue_cone
             1: ("large_orange", 2),      # large_orange_cone -> treat as orange
             2: ("orange", 2),            # orange_cone
-            3: ("unknown", 3),           # unknown_cone -> new class
+            3: ("unknown", 3),           # unknown_cone
             4: ("yellow", 1),            # yellow_cone
         }
         
@@ -213,6 +213,46 @@ class YOLOConeDetector3D(Node):
         
         return masked_image
     
+
+    def get_cones(self, message_lines, frame_id='map', stamp=None):
+        """Convert message lines (X,Y,Z,label) into a PointCloud2 and publish to cone_pc topic
+        Args:
+            message_lines: iterable of strings like 'X,Y,Z,label'
+            frame_id: frame to set on the header (default 'map')
+            stamp: optional builtin Time to use for header.stamp
+        """
+        if not message_lines:
+            return
+
+        points = []
+        for line in message_lines:
+            try:
+                x, y, z, lab = line.split(',')
+                points.append((float(x), float(y), float(z), float(lab)))
+            except Exception:
+                # Skip malformed lines
+                continue
+
+        if not points:
+            return
+
+        header = Header()
+        header.stamp = stamp if stamp is not None else self.get_clock().now().to_msg()
+        header.frame_id = frame_id
+
+        fields = [
+            PointField(name = 'x', offset =  0, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'y', offset = 4, datatype = PointField.FLOAT32, count = 1),
+            PointField(name = 'z', offset = 8, datatype = PointField.FLOAT32, count = 1),
+            # 0: blue_cone, 1: large_orange_cone, 2: orange_cone, 3: unknown_cone, 4: yellow_cone
+            PointField(name ='label', offset = 12, datatype = PointField.FLOAT32, count = 1),
+        ]
+
+        pc_msg = point_cloud2.create_cloud(header, fields, points)
+        self.cone_pc.publish(pc_msg)
+
+
+    
     def image_callback(self, rgb_msg, depth_msg):
         import time
         start_time = time.time()
@@ -220,6 +260,13 @@ class YOLOConeDetector3D(Node):
         rgb_image = self.bridge.imgmsg_to_cv2(rgb_msg, 'bgr8')
         depth_image = self.bridge.imgmsg_to_cv2(depth_msg, '32FC1')
         
+        # Save depth image only once for debugging
+        if not self.depth_saved:
+            depth_vis = np.clip(depth_image, 0, 20)  # Clip to 0-20 meters
+            depth_vis = (depth_vis / 20.0 * 255).astype(np.uint8)
+            cv2.imwrite('/tmp/depth_debug.png', depth_vis)
+            self.depth_saved = True
+
         # Apply ROI masking to focus on relevant area
         masked_rgb = self.mask_image_roi(rgb_image)
         
@@ -277,8 +324,7 @@ class YOLOConeDetector3D(Node):
             model_class_name = "unknown"
             if hasattr(self.model.model, 'names'):
                 model_class_name = self.model.model.names.get(class_id, "unknown")
-            
-            print(f"Detected: {model_class_name} -> {colour} | Conf={confidence:.2f} | Pos=({X:.2f}, {Y:.2f}, {Z:.2f})")
+        
             
             # Draw bounding box and label
             cv2.rectangle(rgb_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -292,12 +338,15 @@ class YOLOConeDetector3D(Node):
         # Debug: Print class distribution every 50 frames
         if self.frame_count % 50 == 0 and class_counts:
             self.get_logger().info(f"Detection class distribution: {class_counts}")
-        
-        # Publish message
-        if message_lines:
-            msg = String()
-            msg.data = "\n".join(message_lines)
-            self.publisher_.publish(msg)
+
+        # Publish point cloud of cones (camera frame by default)
+        try:
+            self.get_cones(message_lines,
+                           frame_id=rgb_msg.header.frame_id,
+                           stamp=rgb_msg.header.stamp)
+        except Exception as e:
+            self.get_logger().error(f"Failed to publish cone pointcloud: {e}")
+
         
         # Performance tracking
         total_time = time.time() - start_time
@@ -335,7 +384,7 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-    cv2.destroyAllWindows()
+    cv2.destroy_all_windows()
 
 if __name__ == '__main__':
     main()

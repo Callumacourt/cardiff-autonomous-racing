@@ -2,7 +2,8 @@
 
 YOLOv8 cone detection running on EUFS Formula Student simulation.
 
-## Quick Start - Do this in terminal to run YOLO with eufs sim
+# ----- Linux ----- #
+## Follow this to run the perception stack with eufs sim
 
 ```bash
 # 1. Allow GUI
@@ -11,16 +12,19 @@ xhost +local:docker
 # 2. Start containers
 docker compose up -d base perception eufs_sim
 
-# 3. Start YOLO detector
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector" &
+# 3. Start YOLO detector (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
 
-# 4. Launch ORB-SLAM3 (viewer pops up ~10s later)
+# 4. Start cone mapper (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper_v6"
+
+# 5. Launch ORB-SLAM3 (interactive - viewer pops up ~10s later)
 docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
 
 #   (EUFS publishes IMU data on `/imu/data`; if you need to double-check, run
 #    `docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic hz /imu/data --window 5'` before launching SLAM.)
 
-# 5. RVIZ opens automatically showing the track
+# 6. RVIZ opens automatically showing the track
 # Add these displays in RVIZ:
 #   - Add → By topic → /ground_truth/cones → ConeArrayWithCovariance (simulator ground truth)
 #   - Add → By topic → /yolo_annotated_image → Image (camera feed with bounding boxes)
@@ -46,10 +50,8 @@ docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && 
 - `/ground_truth/cones` - Ground truth cone positions from EUFS simulator
 - `/zed/left/image_rect_color` - Camera feed (640x480)
 - `/zed/depth/image_raw` - Depth image for 3D positioning
-- `/detected_cones` - YOLO detections with 3D coordinates (String format)
 - `/yolo_annotated_image` - Camera image with bounding boxes drawn
-- `/cone_cloud/local` - Throttled PointCloud2 of planner-friendly cones
-- `/perception/cones` - EUFS `ConeArray` published by the detector
+- `/cone_cloud/local` - Pointcloud of transformed cone detection global coordinates 
 - `/odometry/slam` - Pose estimate from ORB-SLAM3 stereo node
 
 ## Troubleshooting
@@ -106,17 +108,8 @@ docker compose down
 
 # Stop and remove images (clean slate)
 docker compose down --rmi all
+
 ```
-
-## ORB-SLAM3 (Stereo) Workflow
-
-The perception image now installs Pangolin, clones `perception_ws/ORB_SLAM3` from upstream, and compiles the ROS 2 wrapper `slam_example`.
-
-1. Pangolin dependencies + ROS `message_filters` are installed via `apt`
-2. Pangolin is built and installed to `/usr/local/lib/libpangolin.so`
-3. `./build.sh` runs inside `perception_ws/ORB_SLAM3`
-4. `slam_example` is built against the freshly compiled ORB library
-
 ### Launching the stereo pipeline
 
 ```bash
@@ -163,7 +156,7 @@ If the Pangolin window fails to open, rerun `xhost +local:docker` before startin
 - `docker/Dockerfile.eufs_sim` - Builds EUFS simulation with RViz plugins
 - `docker/entrypoint_perception.sh` - Sources Humble/workspace and exports ORB paths
 - `docker/entrypoint_eufs_sim.sh` - Launches sim with `launch_group:=default`
-- `perception_ws/src/cone_detector/cone_detector/YOLO_cone_detector.py` - Main detector node (YOLO + depth)
+- `perception_ws/src/cone_detector/cone_detector/YOLO_cone_detector.py` - Cone detector node (YOLO + depth)
 - `perception_ws/src/slam_example` - ROS 2 wrapper publishing `/odometry/slam`
 - `perception_ws/ORB_SLAM3` - Upstream ORB-SLAM3 sources (built via `./build.sh`)
 - `perception_ws/src/slam_example/config/ORBvoc.txt` - Vocabulary shipped inside the image

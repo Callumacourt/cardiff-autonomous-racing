@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
-"""
-Improved Cone Mapper with CORRECT coordinate transformation
-"""
-
 # --- Integration TODOs ---
-# TODO: Subscribe to /detected_cones (YOLO output)
+# TODO: Subscribe to /cone_cloud/local (YOLO output)
 # TODO: Subscribe to /odometry/slam (ORB-SLAM3 output)
 # TODO: Transform cone detections to global frame using SLAM pose
 # TODO: Build and maintain persistent global cone map
@@ -12,6 +7,7 @@ Improved Cone Mapper with CORRECT coordinate transformation
 # TODO: Publish global map to /global_cone_map for path planning
 # --- End Integration TODOs ---
 
+from sympy import Point
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -19,6 +15,8 @@ from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs_py import point_cloud2
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -212,10 +210,10 @@ class ImprovedConeMapperNode(Node):
         self.vehicle_position = (0.0, 0.0)
         
         # Subscriptions
-        self.cone_sub = self.create_subscription(
-            String, '/detected_cones', self.cone_callback, 10)
         self.pose_sub = self.create_subscription(
             Odometry, '/odometry/slam', self.pose_callback, 10)
+        self.cone_pc_sub = self.create_subscription(
+            PointCloud2, '/cone_cloud/local', self.cone_pc_callback, 10)
         
         # Publishers
         self.local_map_pub = self.create_publisher(String, '/cone_map/local', 10)
@@ -229,6 +227,7 @@ class ImprovedConeMapperNode(Node):
         self.local_timer = self.create_timer(0.05, self.publish_local_map)
         self.global_timer = self.create_timer(0.5, self.publish_global_map)
         self.diagnostics_timer = self.create_timer(1.0, self.publish_diagnostics)
+        self.centerline_timer = self.create_timer(0.5, self.publish_centerline)
         
         # Statistics
         self.stats = {
@@ -266,74 +265,84 @@ class ImprovedConeMapperNode(Node):
         
         self.vehicle_position = (pos.x, pos.y)
     
-    def cone_callback(self, msg):
-        """Handle cone detections with CORRECT coordinate transformation"""
-        if self.latest_pose is None:
+    def cone_callback(self, pc_msg: PointCloud2):
+        """Handle PointCloud2 cone detections (points in camera frame or already in map)."""
+        frame_id = getattr(pc_msg.header, 'frame_id', '')
+        has_pose = (self.latest_pose is not None)
+
+        # If we don't have a SLAM pose, only accept clouds already in map/odom
+        if not has_pose and frame_id not in ('map', 'odom', 'world'):
+            self.get_logger().debug("No SLAM pose and cloud not in map/odom; skipping")
             return
-        
+
         start_time = time.time()
-        
         try:
-            # Get vehicle pose components
-            vehicle_pos = self.latest_pose['position']
-            vehicle_quat = self.latest_pose['orientation']
-            
-            # Create rotation matrix from vehicle/robot to world
-            rot = R.from_quat(vehicle_quat)
-            R_world_vehicle = rot.as_matrix()  # Rotation from vehicle to world
-            t_world_vehicle = vehicle_pos.reshape(3, 1)
-            
-            # Process each detection
-            lines = msg.data.strip().split('\n')
+            # Prepare vehicle/world transform if we have a pose
+            if has_pose:
+                vehicle_pos = self.latest_pose['position']
+                vehicle_quat = self.latest_pose['orientation']
+                rot = R.from_quat(vehicle_quat)
+                R_world_vehicle = rot.as_matrix()
+                t_world_vehicle = vehicle_pos.reshape(3, 1)
+            else:
+                R_world_vehicle = None
+                t_world_vehicle = None
+
+            # Read points from PointCloud2. Prefer 'label' if present, fallback to 'confidence'.
+            available_fields = {f.name for f in pc_msg.fields}
+            label_field = 'label' if 'label' in available_fields else 'confidence'
+            points_iter = point_cloud2.read_points(
+                pc_msg,
+                field_names=('x', 'y', 'z', label_field),
+                skip_nans=True
+            )
+
             valid_detections = 0
-            
-            for line in lines:
-                parts = line.strip().split(',')
-                if len(parts) != 4:
+            for p in points_iter:
+                try:
+                    x_cam, y_cam, z_cam, label_f = p
+                except Exception:
                     continue
-                
-                x_cam, y_cam, z_cam, color = map(float, parts)
-                
-                # Validate camera coordinates
-                if (np.isnan(x_cam) or np.isnan(y_cam) or np.isnan(z_cam) or
-                    np.isinf(x_cam) or np.isinf(y_cam) or np.isinf(z_cam)):
+
+                # Validate inputs
+                if not (np.isfinite(x_cam) and np.isfinite(y_cam) and np.isfinite(z_cam)):
                     self.stats['coordinate_warnings'] += 1
                     continue
-                
-                # Additional validation - reject unreasonable values
-                if abs(x_cam) > 50 or abs(y_cam) > 50 or z_cam < 0.1 or z_cam > 30:
+
+                # Bounds check
+                if abs(x_cam) > 50 or abs(y_cam) > 50 or z_cam < 0.01 or z_cam > 50:
                     self.stats['coordinate_warnings'] += 1
                     continue
-                
-                # CORRECT COORDINATE TRANSFORMATION
-                # Step 1: Convert camera coordinates to robot/vehicle coordinates
-                # ZED Camera: X=right, Y=down, Z=forward
-                # Robot Frame: X=forward, Y=left, Z=up
-                x_robot = z_cam    # Camera Z (forward) -> Robot X (forward)
-                y_robot = -x_cam   # Camera X (right) -> Robot -Y (left)
-                z_robot = -y_cam   # Camera Y (down) -> Robot -Z (up)
-                
-                # Step 2: Transform robot coordinates to world coordinates
-                X_robot = np.array([[x_robot], [y_robot], [z_robot]])
-                X_world = R_world_vehicle @ X_robot + t_world_vehicle
-                
-                # Extract world coordinates
-                x_world, y_world, z_world = X_world[0, 0], X_world[1, 0], X_world[2, 0]
-                
-                # Add to local buffer
-                self.local_buffer.add_cone_detection(x_world, y_world, z_world, int(color))
-                
+
+                # If cloud already in world/map frame, use values directly
+                if frame_id in ('map', 'odom', 'world'):
+                    x_world, y_world, z_world = float(x_cam), float(y_cam), float(z_cam)
+                else:
+                    # require SLAM pose to transform camera->robot->world
+                    if not has_pose:
+                        continue
+                    x_robot = z_cam    # camera Z -> robot X (forward)
+                    y_robot = -x_cam   # camera X -> robot -Y (left)
+                    z_robot = -y_cam   # camera Y -> robot -Z (up)
+                    X_robot = np.array([[x_robot], [y_robot], [z_robot]])
+                    X_world = R_world_vehicle @ X_robot + t_world_vehicle
+                    x_world, y_world, z_world = float(X_world[0, 0]), float(X_world[1, 0]), float(X_world[2, 0])
+
+                # Label parsing
+                try:
+                    color = int(label_f)
+                except Exception:
+                    color = 0
+
+                self.local_buffer.add_cone_detection(x_world, y_world, z_world, color)
                 self.stats['total_detections'] += 1
                 valid_detections += 1
-            
-            # Log detection summary
+
             if valid_detections > 0:
                 self.get_logger().info(f'Processed {valid_detections} valid cone detections')
-            
-            # Update local buffer
+
+            # Update buffer and try promote to global map
             self.local_buffer.update_frame()
-            
-            # Try to promote high-confidence cones to global map
             promoted_count = 0
             for cone in self.local_buffer.get_high_confidence_cones():
                 if self.global_map.try_add_cone(cone):
@@ -341,18 +350,23 @@ class ImprovedConeMapperNode(Node):
                     promoted_count += 1
                     self.get_logger().info(
                         f'Added cone {cone["id"]} to global map at '
-                        f'({cone["x"]:.1f}, {cone["y"]:.1f}) with confidence {cone["confidence"]:.2f}')
-            
+                        f'({cone["x"]:.1f}, {cone["y"]:.1f}) with confidence {cone["confidence"]:.2f}'
+                    )
+
             if promoted_count > 0:
                 self.get_logger().info(f'Promoted {promoted_count} cones to global map')
-            
+
             # Track processing time
             self.stats['processing_times'].append(time.time() - start_time)
             if len(self.stats['processing_times']) > 100:
                 self.stats['processing_times'] = self.stats['processing_times'][-100:]
-            
+
         except Exception as e:
-            self.get_logger().error(f'Error processing cone detections: {e}')
+            self.get_logger().error(f'Error processing cone pointcloud: {e}')
+
+    def cone_pc_callback(self, pc_msg: PointCloud2):
+        # wrapper to keep subscription name used in __init__
+        self.cone_callback(pc_msg)
     
     def publish_local_map(self):
         """Publish local cone map"""
@@ -467,7 +481,77 @@ class ImprovedConeMapperNode(Node):
             
             marker_array.markers.append(marker)
         
+        # Add centerline marker
+        centerline_marker = Marker()
+        centerline_marker.type = Marker.LINE_STRIP
+        centerline_marker.header.frame_id = 'map'
+        centerline_marker.header.stamp = self.get_clock().now().to_msg()
+        centerline_marker.ns = 'centerline'
+        centerline_marker.id = 999  # Unique ID
+        centerline_marker.action = Marker.ADD
+        centerline_marker.color.r, centerline_marker.color.g, centerline_marker.color.b = 0.0, 1.0, 0.0
+        centerline_marker.color.a = 1.0
+        centerline_marker.scale.x = 0.1  # line width
+
+        # Compute centerline from boundaries (midpoint of left/right cones)
+        left_cones = [c for c in global_cones if c['color'] == BLUE_CONE]
+        right_cones = [c for c in global_cones if c['color'] == YELLOW_CONE]
+
+        for i in range(min(len(left_cones), len(right_cones))):
+            from geometry_msgs.msg import Point
+            p = Point()
+            p.x = (left_cones[i]['x'] + right_cones[i]['x']) / 2.0
+            p.y = (left_cones[i]['y'] + right_cones[i]['y']) / 2.0
+            p.z = 0.0
+            centerline_marker.points.append(p)
+
+        marker_array.markers.append(centerline_marker)
+        
         self.markers_pub.publish(marker_array)
+    
+    def publish_centerline(self):
+        """Publish centerline as a Path message for RViz"""
+        global_cones = self.global_map.get_global_map()
+        
+        # Separate left (blue) and right (yellow) cones
+        left_cones = sorted([c for c in global_cones if c['color'] == BLUE_CONE], 
+                            key=lambda c: np.sqrt(c['x']**2 + c['y']**2))
+        right_cones = sorted([c for c in global_cones if c['color'] == YELLOW_CONE], 
+                             key=lambda c: np.sqrt(c['x']**2 + c['y']**2))
+        
+        if not left_cones or not right_cones:
+            self.get_logger().debug("Not enough left/right cones for centerline")
+            return
+        
+        # Calculate centerline as midpoint between left and right
+        centerline_path = Path()
+        centerline_path.header.frame_id = 'map'
+        centerline_path.header.stamp = self.get_clock().now().to_msg()
+        
+        for i in range(min(len(left_cones), len(right_cones))):
+            left = left_cones[i]
+            right = right_cones[i]
+            
+            # Midpoint
+            cx = (left['x'] + right['x']) / 2.0
+            cy = (left['y'] + right['y']) / 2.0
+            cz = (left['z'] + right['z']) / 2.0
+            
+            pose = PoseStamped()
+            pose.header.frame_id = 'map'
+            pose.header.stamp = self.get_clock().now().to_msg()
+            pose.pose.position.x = cx
+            pose.pose.position.y = cy
+            pose.pose.position.z = cz
+            pose.pose.orientation.w = 1.0
+            
+            centerline_path.poses.append(pose)
+            
+            # Log for debugging
+            if i % 5 == 0:
+                self.get_logger().info(f"Centerline point {i}: ({cx:.2f}, {cy:.2f}, {cz:.2f})")
+        
+        self.centerline_pub.publish(centerline_path)
     
     def publish_diagnostics(self):
         """Publish system diagnostics"""

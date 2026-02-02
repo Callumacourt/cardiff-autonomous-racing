@@ -23,7 +23,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'cone_detector_node = cone_detector.cone_detector_node:main',
             'YOLO_cone_detector = cone_detector.YOLO_cone_detector:main',
         ],
     },
