@@ -3,23 +3,23 @@
 # Camera Parameters
 Camera.type: "PinHole"
 
-Camera.fx: 448.134
-Camera.fy: 448.134
-Camera.cx: 640.5
-Camera.cy: 360.5
+Camera.fx: 1050.0      # Scale from 525.0 (doubled for 2x resolution)
+Camera.fy: 1050.0
+Camera.cx: 640.0       # Half of 1280
+Camera.cy: 360.0       # Half of 720
 
 Camera.k1: 0.0
 Camera.k2: 0.0
 Camera.p1: 0.0
 Camera.p2: 0.0
 
-Camera.width: 1280
-Camera.height: 720
+Camera.width: 1280     # Changed from 640
+Camera.height: 720     # Changed from 480
 
 Camera.fps: 30
 Camera.RGB: 1
 
-Camera.bf: 53.8  # fx * baseline = 448.134 * 0.12
+Camera.bf: 126.0       # Scale from 63.0 (2x for 2x resolution)
 
 # ORB Extractor Params
 ORBextractor.nFeatures: 1000

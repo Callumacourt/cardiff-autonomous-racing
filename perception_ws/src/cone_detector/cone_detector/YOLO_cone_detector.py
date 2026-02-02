@@ -40,8 +40,6 @@ class YOLOConeDetector3D(Node):
         self.ts.registerCallback(self.image_callback)
         
         self.get_logger().info("YOLO ConeDetector 3D node started.")
-        self.publisher_ = self.create_publisher(String, 'detected_cones', 10)
-        
         # Publisher for annotated image with bounding boxes
         self.image_publisher_ = self.create_publisher(Image, 'yolo_annotated_image', 10)
         # Cone detection publication (subscribe here!!)
@@ -190,7 +188,7 @@ class YOLOConeDetector3D(Node):
             0: ("blue", 0),              # blue_cone
             1: ("large_orange", 2),      # large_orange_cone -> treat as orange
             2: ("orange", 2),            # orange_cone
-            3: ("unknown", 3),           # unknown_cone -> new class
+            3: ("unknown", 3),           # unknown_cone
             4: ("yellow", 1),            # yellow_cone
         }
         
@@ -340,12 +338,6 @@ class YOLOConeDetector3D(Node):
         # Debug: Print class distribution every 50 frames
         if self.frame_count % 50 == 0 and class_counts:
             self.get_logger().info(f"Detection class distribution: {class_counts}")
-        
-        # Publish message
-        if message_lines:
-            msg = String()
-            msg.data = "\n".join(message_lines)
-            self.publisher_.publish(msg)
 
         # Publish point cloud of cones (camera frame by default)
         try:

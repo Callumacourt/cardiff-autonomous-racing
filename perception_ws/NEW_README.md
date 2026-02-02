@@ -12,16 +12,19 @@ xhost +local:docker
 # 2. Start containers
 docker compose up -d base perception eufs_sim
 
-# 3. Start YOLO detector
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector" &
+# 3. Start YOLO detector (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
 
-# 4. Launch ORB-SLAM3 (viewer pops up ~10s later)
+# 4. Start cone mapper (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper_v6"
+
+# 5. Launch ORB-SLAM3 (interactive - viewer pops up ~10s later)
 docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
 
 #   (EUFS publishes IMU data on `/imu/data`; if you need to double-check, run
 #    `docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic hz /imu/data --window 5'` before launching SLAM.)
 
-# 5. RVIZ opens automatically showing the track
+# 6. RVIZ opens automatically showing the track
 # Add these displays in RVIZ:
 #   - Add → By topic → /ground_truth/cones → ConeArrayWithCovariance (simulator ground truth)
 #   - Add → By topic → /yolo_annotated_image → Image (camera feed with bounding boxes)
@@ -47,9 +50,8 @@ docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && 
 - `/ground_truth/cones` - Ground truth cone positions from EUFS simulator
 - `/zed/left/image_rect_color` - Camera feed (640x480)
 - `/zed/depth/image_raw` - Depth image for 3D positioning
-- `/cone_pc` - PointCloud of cone detections
 - `/yolo_annotated_image` - Camera image with bounding boxes drawn
-- `/perception/cones` - EUFS `ConeArray` published by the detector
+- `/cone_cloud/local` - Pointcloud of transformed cone detection global coordinates 
 - `/odometry/slam` - Pose estimate from ORB-SLAM3 stereo node
 
 ## Troubleshooting

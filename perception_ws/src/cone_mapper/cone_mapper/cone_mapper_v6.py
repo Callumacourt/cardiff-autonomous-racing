@@ -1,5 +1,5 @@
 # --- Integration TODOs ---
-# TODO: Subscribe to /detected_cones (YOLO output)
+# TODO: Subscribe to /cone_cloud/local (YOLO output)
 # TODO: Subscribe to /odometry/slam (ORB-SLAM3 output)
 # TODO: Transform cone detections to global frame using SLAM pose
 # TODO: Build and maintain persistent global cone map
@@ -7,6 +7,7 @@
 # TODO: Publish global map to /global_cone_map for path planning
 # --- End Integration TODOs ---
 
+from sympy import Point
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -226,6 +227,7 @@ class ImprovedConeMapperNode(Node):
         self.local_timer = self.create_timer(0.05, self.publish_local_map)
         self.global_timer = self.create_timer(0.5, self.publish_global_map)
         self.diagnostics_timer = self.create_timer(1.0, self.publish_diagnostics)
+        self.centerline_timer = self.create_timer(0.5, self.publish_centerline)
         
         # Statistics
         self.stats = {
@@ -286,10 +288,14 @@ class ImprovedConeMapperNode(Node):
                 R_world_vehicle = None
                 t_world_vehicle = None
 
-            # Read points from PointCloud2. Field order expected: x,y,z,confidence
-            points_iter = point_cloud2.read_points(pc_msg,
-                                                   field_names=('x', 'y', 'z', 'confidence'),
-                                                   skip_nans=True)
+            # Read points from PointCloud2. Prefer 'label' if present, fallback to 'confidence'.
+            available_fields = {f.name for f in pc_msg.fields}
+            label_field = 'label' if 'label' in available_fields else 'confidence'
+            points_iter = point_cloud2.read_points(
+                pc_msg,
+                field_names=('x', 'y', 'z', label_field),
+                skip_nans=True
+            )
 
             valid_detections = 0
             for p in points_iter:
@@ -475,7 +481,77 @@ class ImprovedConeMapperNode(Node):
             
             marker_array.markers.append(marker)
         
+        # Add centerline marker
+        centerline_marker = Marker()
+        centerline_marker.type = Marker.LINE_STRIP
+        centerline_marker.header.frame_id = 'map'
+        centerline_marker.header.stamp = self.get_clock().now().to_msg()
+        centerline_marker.ns = 'centerline'
+        centerline_marker.id = 999  # Unique ID
+        centerline_marker.action = Marker.ADD
+        centerline_marker.color.r, centerline_marker.color.g, centerline_marker.color.b = 0.0, 1.0, 0.0
+        centerline_marker.color.a = 1.0
+        centerline_marker.scale.x = 0.1  # line width
+
+        # Compute centerline from boundaries (midpoint of left/right cones)
+        left_cones = [c for c in global_cones if c['color'] == BLUE_CONE]
+        right_cones = [c for c in global_cones if c['color'] == YELLOW_CONE]
+
+        for i in range(min(len(left_cones), len(right_cones))):
+            from geometry_msgs.msg import Point
+            p = Point()
+            p.x = (left_cones[i]['x'] + right_cones[i]['x']) / 2.0
+            p.y = (left_cones[i]['y'] + right_cones[i]['y']) / 2.0
+            p.z = 0.0
+            centerline_marker.points.append(p)
+
+        marker_array.markers.append(centerline_marker)
+        
         self.markers_pub.publish(marker_array)
+    
+    def publish_centerline(self):
+        """Publish centerline as a Path message for RViz"""
+        global_cones = self.global_map.get_global_map()
+        
+        # Separate left (blue) and right (yellow) cones
+        left_cones = sorted([c for c in global_cones if c['color'] == BLUE_CONE], 
+                            key=lambda c: np.sqrt(c['x']**2 + c['y']**2))
+        right_cones = sorted([c for c in global_cones if c['color'] == YELLOW_CONE], 
+                             key=lambda c: np.sqrt(c['x']**2 + c['y']**2))
+        
+        if not left_cones or not right_cones:
+            self.get_logger().debug("Not enough left/right cones for centerline")
+            return
+        
+        # Calculate centerline as midpoint between left and right
+        centerline_path = Path()
+        centerline_path.header.frame_id = 'map'
+        centerline_path.header.stamp = self.get_clock().now().to_msg()
+        
+        for i in range(min(len(left_cones), len(right_cones))):
+            left = left_cones[i]
+            right = right_cones[i]
+            
+            # Midpoint
+            cx = (left['x'] + right['x']) / 2.0
+            cy = (left['y'] + right['y']) / 2.0
+            cz = (left['z'] + right['z']) / 2.0
+            
+            pose = PoseStamped()
+            pose.header.frame_id = 'map'
+            pose.header.stamp = self.get_clock().now().to_msg()
+            pose.pose.position.x = cx
+            pose.pose.position.y = cy
+            pose.pose.position.z = cz
+            pose.pose.orientation.w = 1.0
+            
+            centerline_path.poses.append(pose)
+            
+            # Log for debugging
+            if i % 5 == 0:
+                self.get_logger().info(f"Centerline point {i}: ({cx:.2f}, {cy:.2f}, {cz:.2f})")
+        
+        self.centerline_pub.publish(centerline_path)
     
     def publish_diagnostics(self):
         """Publish system diagnostics"""

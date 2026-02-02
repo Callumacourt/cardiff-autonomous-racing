@@ -1,14 +1,6 @@
 # Perception module Dockerfile
 FROM car-base
 
-# --- ORB-SLAM3 Integration TODOs ---
-# TODO: Add proper ORB-SLAM3 build from source (C++)
-# TODO: Install Pangolin, DBoW2, and other dependencies for SLAM
-# TODO: Build Python bindings for ORB-SLAM3 with pybind11
-# TODO: Validate SLAM integration with ROS2 camera topics
-# TODO: Add SLAM launch and test scripts
-# --- End ORB-SLAM3 TODOs ---
-
 # Install additional dependencies for perception and ORB-SLAM3
 RUN apt-get update && apt-get install -y \
     python3-numpy \
@@ -77,16 +69,6 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git && \
 WORKDIR /workspace
 RUN mkdir -p /workspace/perception_ws/src
 
-# Copy ORB_SLAM3 code (but skip building for now due to missing dependencies)
-# COPY perception_ws/ORB_SLAM3_mask /workspace/ORB_SLAM3
-# Note: ORB-SLAM3 build disabled - focus on YOLO cone detection first
-
-# Copy perception modules (skip slam_example - requires ORB-SLAM3)
-WORKDIR /workspace
-COPY perception_ws/src/cone_detector/ /workspace/perception_ws/src/cone_detector/
-COPY perception_ws/src/cone_mapper/ /workspace/perception_ws/src/cone_mapper/
-COPY perception_ws/src/slam_example/ /workspace/perception_ws/src/slam_example/
-
 # Fetch ORB-SLAM3 sources (visual SLAM backend)
 ARG ORB_SLAM3_REPO=https://github.com/UZ-SLAMLab/ORB_SLAM3.git
 ARG ORB_SLAM3_REF=master
@@ -116,6 +98,11 @@ WORKDIR /workspace/perception_ws/ORB_SLAM3
 RUN /bin/bash -c 'chmod +x build.sh build_ros.sh && \
     ./build.sh'
 
+# Copy perception modules (after ORB-SLAM3 build to preserve cache)
+WORKDIR /workspace
+COPY perception_ws/src/cone_detector/ /workspace/perception_ws/src/cone_detector/
+COPY perception_ws/src/cone_mapper/ /workspace/perception_ws/src/cone_mapper/
+COPY perception_ws/src/slam_example/ /workspace/perception_ws/src/slam_example/
 
 # Create models directory
 RUN mkdir -p /workspace/perception_ws/models

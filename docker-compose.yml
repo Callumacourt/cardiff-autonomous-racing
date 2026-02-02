@@ -39,7 +39,7 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: >
       bash -c "
-      echo ' Perception ready. Start nodes manually or run: ros2 run cone_detector cone_detector_node' &&
+      echo 'Perception ready. Start nodes manually or run: ros2 run cone_detector YOLO_cone_detector' &&
       tail -f /dev/null
       "
 
