@@ -3,3 +3,4 @@ install/
 log/
 .vscode/
 Control/logs/
+**__pycache__/
