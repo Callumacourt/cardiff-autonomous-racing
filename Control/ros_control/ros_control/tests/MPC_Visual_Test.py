@@ -1,4 +1,7 @@
 import os, sys
+import pytest
+
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from MPC.main import Model_Predictive_Control
@@ -17,16 +20,100 @@ def convertListToPoses(pointsList:list[tuple[float,float]]) -> list[PoseStamped]
     
     return poseList
 
+def isPathGoodEnough(desiredPath, predictedPath) -> bool:
+    return False
+
+class TestMPCFromStationaryAnd0_0:
+    """Tests the MPC algorithm, when the car starts at 0rpm and from 0,0"""
+
+    def test_straight_line(self):
+        """Test if MPC algorithm works with a straight line (like in the acceleration mission)"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+    
+    def test_bend_left(self):
+        """Test if the MPC algorithm works with a bend to the left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_bend_right(self):
+        """Test if the MPC algorithm works with a bend to the right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_left(self):
+        """Test if the MPC algorithm works with a hairpin left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_right(self):
+        """Test if the MPC algorithm works with a hairpin right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_left(self):
+        """Test if the MPC algorithm works with a left-right chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_right(self):
+        """Test if the MPC algorithm works with a right-left chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+class TestMPCAtSpeedAnd0_0:
+    """Tests the MPC algorithm when the car is at speed, and located at 0,0"""
+
+    def test_straight_line(self):
+        """Test if MPC algorithm works with a straight line (like in the acceleration mission)"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+    
+    def test_bend_left(self):
+        """Test if the MPC algorithm works with a bend to the left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_bend_right(self):
+        """Test if the MPC algorithm works with a bend to the right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_left(self):
+        """Test if the MPC algorithm works with a hairpin left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_right(self):
+        """Test if the MPC algorithm works with a hairpin right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_left(self):
+        """Test if the MPC algorithm works with a left-right chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_right(self):
+        """Test if the MPC algorithm works with a right-left chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+class TestMPCAtSpeedAndArbitraryLocation:
+    """Tests the MPC algorithm when the car is at speed, and at any arbitrary location"""
+    def test_straight_line(self):
+        """Test if MPC algorithm works with a straight line (like in the acceleration mission)"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+    
+    def test_bend_left(self):
+        """Test if the MPC algorithm works with a bend to the left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_bend_right(self):
+        """Test if the MPC algorithm works with a bend to the right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_left(self):
+        """Test if the MPC algorithm works with a hairpin left"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_hairpin_right(self):
+        """Test if the MPC algorithm works with a hairpin right"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_left(self):
+        """Test if the MPC algorithm works with a left-right chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
+
+    def test_chicane_right(self):
+        """Test if the MPC algorithm works with a right-left chicane"""
+        assert isPathGoodEnough(desiredPath, predictedPath)
 
 if __name__ == "__main__":
-    #
-    timer_period = 0.01
-    mpc = Model_Predictive_Control(timer_period, 5)
-
-    #create 1st path
-    path1 = Path()
-    path1.header = Header()
-    path1.poses = convertListToPoses([(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,5),(0,6),(0,7),(0,8),(0,9)])
-    #create 2nd path
-    #create 3rd path
-    #create 4th path
+    pytest.main([__file__, "-v"])
