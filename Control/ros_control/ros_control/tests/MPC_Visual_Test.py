@@ -44,9 +44,10 @@ def convertStatesToList(states:list[Vehicle_State]) -> list[float]:
     return points
 
 def isPathGoodEnough(desiredPath, predictedPath) -> bool:
-    return True
+    return False
 
-path_straight = [(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,6),(0,7),(0,8),(0,9)]
+path_straight = [(0,0),(1,0),(2,0),(3,0),(4,0),(5,0),(6,0),(7,0),(8,0),(9,0)]
+#path_straight = [(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,6),(0,7),(0,8),(0,9)]
 path_slight_bend_left = []
 path_slight_bend_right = []
 path_hard_bend_left = []
@@ -56,7 +57,9 @@ path_hairpin_right = []
 path_chicane_left = []
 path_chicane_right = []
 
-mpc = Model_Predictive_Control(0.01)
+mpc_timestep = 0.5
+
+mpc = Model_Predictive_Control(mpc_timestep)
 
 @pytest.fixture
 def save_plot():
@@ -64,13 +67,16 @@ def save_plot():
     plot_dir = pathlib.Path("test_plots")
     plot_dir.mkdir(exist_ok=True)
     
-    def _save(desiredPath, predictedPath, name):
+    def _save(desiredPath, predictedPath, name:str):
 
         desired_x = [v[0] for v in desiredPath]
         desired_y = [v[1] for v in desiredPath]
 
         predicted_x = [v[0] for v in predictedPath]
         predicted_y = [v[1] for v in predictedPath]
+
+        max_coord = max(max(max(desired_x),max(desired_y)),max(max(predicted_x),max(predicted_y)))
+        min_coord = min(min(min(desired_x),min(desired_y)),min(min(predicted_x),min(predicted_y)))
 
 
         fig, ax = plt.subplots()
@@ -85,12 +91,12 @@ def save_plot():
         ax.plot(predicted_x[0], predicted_y[0], 'go', markersize=12)
         ax.plot(predicted_x[-1], predicted_y[-1], 'ro', markersize=12)
 
-        ax.set_title("TEST PLOT")
-        ax.set_xlim(-5, 5)
-        ax.set_ylim(0, 10)
+        ax.set_title(name)
+        ax.set_xlim(min_coord-1, max_coord+1)
+        ax.set_ylim(min_coord-1, max_coord+1)
         ax.legend()
 
-        filepath = plot_dir / f"{name}.png"
+        filepath = plot_dir / f"{name.replace(" ","_")}.png"
         fig.savefig(filepath, dpi=100, bbox_inches='tight')
         plt.close(fig)
         print(f"\nPlot saved: {filepath}")
@@ -106,18 +112,24 @@ class TestMPCFromStationaryAnd0_0:
         #TEMPORARY
         #predictedPath = [(1,0),(2,1),(3,2),(4,3),(4,4),(3,5),(2,6),(1,7),(1,8),(1,9)]
 
+        initial_state = Vehicle_State(x_pos=0,y_pos=0,x_speed=0,y_speed=0,yaw_angle=0,yaw_rate=0,wheel_rpm=0,steering_angle_rad=0)
+
         # get the inputs the MPC algorithm produces
-        predictedInputs = mpc.main(Vehicle_State(x_pos=0,y_pos=0,x_speed=0,y_speed=0,yaw_angle=0,yaw_rate=0,wheel_rpm=0,steering_angle_rad=0),
-                                   convertListToPath(path_straight)
+        predictedInputs = mpc.main(initial_state,
+                                   convertListToPath(path_straight),
+                                   [Vehicle_Input(1,0) for x in range(10)]
                                    )
         
         # convert those inputs into points for a comparison
-        predictedStates = mpc.forward_simulation(predictedInputs)
+        predictedStates = mpc.forward_simulation(initial_state, predictedInputs)
 
         # convert states into points
         predictedPath = convertStatesToList(predictedStates)
+        print(f"path: {predictedPath}")
+        print(f"States: {[(state.directional_velocity,state.steering_angle_rad) for state in predictedStates]}")
+        print(f"inputs: {[(inp.acceleration,inp.steering_angle) for inp in predictedInputs]}")
         
-        save_plot(path_straight, predictedPath, "Test_Plot")
+        save_plot(path_straight, predictedPath, "Straight line")
 
         assert isPathGoodEnough(path_straight, predictedPath)
 

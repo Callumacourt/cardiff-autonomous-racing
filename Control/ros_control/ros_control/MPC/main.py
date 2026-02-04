@@ -39,7 +39,10 @@ class Model_Predictive_Control():
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped,last:bool) -> float:
         cost = 0
         pose = pose_stamped.pose
-
+        
+        if state.directional_velocity == 0:
+            state.directional_velocity = 0.001
+        
         #penalize being far from point
         cost += 100 * sqrt((state.xpos - pose.position.x)**2 + (state.ypos - pose.position.y)**2)
         #penalize being to slow
@@ -53,7 +56,8 @@ class Model_Predictive_Control():
 
         #penalize super sharp steering
         cost += 5 * state.yaw_rate
-        """
+
+        """       
         #massively punish movement if last node, this should ensure the car is always able to stop by the end of the path
         if last:
             if state.directional_velocity >0.05:
@@ -78,11 +82,11 @@ class Model_Predictive_Control():
         #calculate the cost for each and sum them
         total_cost = 0
         for i in range(0,self.horizon):
-            total_cost += self.stage_cost(state=states,input=inputs[i],point=required_path.poses[i],last=True if i+1 == self.horizon else False)
+            total_cost += self.stage_cost(state=states[i],input=inputs[i],pose_stamped=required_path.poses[i],last=True if i+1 == self.horizon else False)
 
         return total_cost
 
-    def main(self,initial_state:Vehicle_State,required_path:Path,inputs=[Vehicle_Input(1,0) for x in range(50)]) -> list[Vehicle_Input]:
+    def main(self,initial_state:Vehicle_State,required_path:Path,inputs=None) -> list[Vehicle_Input]:
         """This function is the main model predictive control loop.
         It should minimize the cost of the path by creating a set of inputs to 
         follow a dynamically feasible trajectory, 
@@ -99,11 +103,12 @@ class Model_Predictive_Control():
         if required_path == None: # if no path, dont do anything
             return [Vehicle_Input(acceleration=0.0,steering_angle=0.0)]
         
-        self.horizon = len(required_path.poses) - 1
+        self.horizon = len(required_path.poses)
 
         # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
-        try:
-            u0 = np.array([item for vi in self.previous_inputs for item in (vi.acceleration, vi.steering_angle)])
+        try:# create an initial guess based on the calculated inputs for the previous iteration
+           # u0 = np.array([item for vi in self.previous_inputs for item in (vi.acceleration, vi.steering_angle)])
+            u0 = np.array([item for vi in inputs for item in (vi.acceleration, vi.steering_angle)])
         except:
             u0 = np.array([1, 0] * self.horizon)
 
@@ -118,9 +123,16 @@ class Model_Predictive_Control():
             inputs = unpack_inputs(u)
             return self.cost_function(initial_state, inputs,required_path)
 
-        res = minimize(objective, u0, bounds=bounds, method='SLSQP', options={'maxiter': 100, 'disp': True})
-
+        res = minimize(objective, u0, bounds=bounds, method='L-BFGS-B', options={'maxiter': 100, 'disp': True})
+        
         best_inputs = unpack_inputs(res.x)
+        
+        if res.success: 
+            print("MPC Success")
+        else:
+            print("MPC Unsuccessful")
+            print(res.message)
+            #best_inputs = [Vehicle_Input(0,0) for x in range(self.horizon)]
         self.previous_inputs = best_inputs
         return best_inputs  # Return the first input to apply now
     
