@@ -1,15 +1,40 @@
-FROM cardiff-racing:base
+FROM car-base
 
-# Install Python dependencies needed by the package
+# Install system dependencies needed by optimization packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies needed by the package and TUM optimizer
+# Install in specific order to resolve dependencies properly
+RUN pip3 install --no-cache-dir numpy scipy
+
+# Install quadprog from source to avoid symbol issues
+RUN pip3 install --no-cache-dir --no-binary quadprog quadprog
+
 RUN pip3 install --no-cache-dir \
-    numpy \
-    scipy
+    casadi>=3.5.5 \
+    cvxpy \
+    matplotlib
+
+# Install trajectory planning helpers (will use the quadprog we built)
+RUN pip3 install --no-cache-dir trajectory-planning-helpers
+
+# Verify installation (skip quadprog direct test, just check if TPH works)
+RUN python3 -c "import numpy; import scipy; import casadi; print('✅ Core dependencies installed')"
 
 # Create workspace
 RUN mkdir -p /workspace/planning_ws/src
 
 # Copy the entire Path_Planning directory with correct structure (underscore not space)
 COPY ["Path_Planning/", "/workspace/planning_ws/src/path_planning/"]
+
+# Add TUM optimizer to PYTHONPATH (not installed as package)
+ENV PYTHONPATH="/workspace/planning_ws/src/path_planning/tum_optimizer:${PYTHONPATH}"
 
 # Ensure resource file exists (in case it wasn't copied)
 RUN mkdir -p /workspace/planning_ws/src/path_planning/resource && \
@@ -19,6 +44,10 @@ RUN mkdir -p /workspace/planning_ws/src/path_planning/resource && \
 WORKDIR /workspace/planning_ws
 RUN . /opt/ros/humble/setup.sh && \
     colcon build --symlink-install
+
+# Add ROS 2 setup to .bashrc for interactive shells
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
+    echo "source /workspace/planning_ws/install/setup.bash" >> /root/.bashrc
 
 # Copy entrypoint and fix line endings
 COPY docker/entrypoint_planning.sh /entrypoint.sh

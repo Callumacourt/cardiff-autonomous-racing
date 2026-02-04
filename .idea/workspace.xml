@@ -4,7 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b9a5483f-f84b-4b33-8392-29637861e56d" name="Changes" comment="EXPERIMENTAL: Added exception handling and basic logging to the algorithm to better handle edge cases. Known bug where algorithm reaches goal but states it is only completed partially." />
+    <list default="true" id="b9a5483f-f84b-4b33-8392-29637861e56d" name="Changes" comment="EXPERIMENTAL: Added exception handling and basic logging to the algorithm to better handle edge cases. Known bug where algorithm reaches goal but states it is only completed partially.">
+      <change beforePath="$PROJECT_DIR$/.gitmodules" beforeDir="false" afterPath="$PROJECT_DIR$/.gitmodules" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/cardiff-autonomous-racing.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/cardiff-autonomous-racing.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Path_Planning/path_planning/integration.py" beforeDir="false" afterPath="$PROJECT_DIR$/Path_Planning/path_planning/integration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Path_Planning/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Path_Planning/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker/Dockerfile.planning" beforeDir="false" afterPath="$PROJECT_DIR$/docker/Dockerfile.planning" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,6 +39,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;path-planning-development&quot;,
+    &quot;last_opened_file_path&quot;: &quot;//wsl$/Ubuntu-22.04/home/dom/cardiff-autonomous-racing&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -106,6 +115,8 @@
       <updated>1747714187180</updated>
       <workItem from="1747714190375" duration="4803000" />
       <workItem from="1747865101767" duration="1502000" />
+      <workItem from="1768788355907" duration="286000" />
+      <workItem from="1769462157745" duration="10000" />
     </task>
     <task id="LOCAL-00001" summary="Updated .gitignore and deleted redundant legacy code directory.">
       <option name="closed" value="true" />

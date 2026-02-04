@@ -9164,3 +9164,5 @@ Mon Oct 27 18:40:53 UTC 2025
 [INFO] [1761619262.446413959] [ros_control]: cmd loop
 [INFO] [1761619262.447074527] [ros_control]: ami: 0
 [INFO] [1761619262.447612923] [ros_control]: as: 0
+Sun Jan 18 17:57:55 PST 2026
+Package 'ros_control' not found

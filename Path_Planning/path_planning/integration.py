@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Path Planning Integration Node
-Subscribes to YOLO cone detections and implements path planning
 """
 
 import rclpy
@@ -11,60 +10,130 @@ from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped as PathPose
 import numpy as np
-from typing import List, Tuple
-import message_filters
+
+# Import TUM optimizer wrapper
+try:
+    from path_planning.tum_wrapper import TUMTrajectoryOptimizer
+    TUM_AVAILABLE = True
+except ImportError:
+    TUM_AVAILABLE = False
 
 class PathPlannerNode(Node):
     def __init__(self):
         super().__init__('path_planner')
         
-        # Current CAR coordinates - updates due to pose callback
         self.current_pose = (0.0, 0.0)
-        self.left_cones = []   # Blue cones (class_id=0, label=0)
-        self.right_cones = []  # Yellow cones (class_id=4, label=1)
-        self.orange_cones = [] # Orange cones (class_id=1,2, label=2)
-        self.centerline = []
-        self.last_goal_idx = 0
+        self.left_cones = []
+        self.right_cones = []
+        self.orange_cones = []
+        self.optimized_trajectory = None
         
-        # Subscribe to car pose and sync with cone detections
-        pose_sub = message_filters.Subscriber(PoseStamped, '/car_pose')
-        cones_sub = message_filters.Subscriber(String, '/detected_cones')
+        # Initialize TUM optimizer
+        self.tum_optimizer = TUMTrajectoryOptimizer(
+            vehicle_width=1.5,
+            vehicle_length=2.5
+        ) if TUM_AVAILABLE else None
         
-        ts = message_filters.TimeSynchronizer([pose_sub, cones_sub], queue_size=10)
-        ts.registerCallback(self.synchronized_callback)
+        # Subscriptions
+        self.pose_sub = self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
+        self.cones_sub = self.create_subscription(String, '/detected_cones', self.yolo_cones_callback, 10)
         
-        # Publisher for the planned path
+        # Publisher
         self.path_pub = self.create_publisher(Path, '/planned_path', 10)
         
-        # Timer for main planning loop (5 Hz)
+        # Timer (5 Hz)
         self.timer = self.create_timer(0.2, self.main_loop)
         
-        # Statistics
-        self.detection_count = 0
-        self.last_detection_time = self.get_clock().now()
-        
-        self.get_logger().info('Path Planner Node initialized')
+        self.get_logger().info('Path Planner initialized')
     
-    def synchronized_callback(self, pose_msg, cones_msg):
-        """Handle synchronized pose and cone detection messages"""
-        self.pose_callback(pose_msg)
-        self.yolo_cones_callback(cones_msg)
+    def yolo_cones_callback(self, msg):
+        """Parse cone data from YOLO: x,y,z,label per line"""
+        self.left_cones = []
+        self.right_cones = []
+        self.orange_cones = []
         
-        # Subscribe to YOLO cone detections
-        self.create_subscription(String, '/detected_cones', self.yolo_cones_callback, 10)
+        if not msg.data.strip():
+            return
         
-        # Publisher for the planned path
-        self.path_pub = self.create_publisher(Path, '/planned_path', 10)
+        for line in msg.data.strip().split('\n'):
+            parts = line.strip().split(',')
+            if len(parts) >= 4:
+                try:
+                    x, y, z, label = map(float, parts[:4])
+                    label = int(label)
+                    
+                    if label == 0:
+                        self.left_cones.append((x, y))
+                    elif label == 1:
+                        self.right_cones.append((x, y))
+                    elif label == 2:
+                        self.orange_cones.append((x, y))
+                except (ValueError, IndexError):
+                    continue
         
-        # Timer for main planning loop (5 Hz)
-        self.timer = self.create_timer(0.2, self.main_loop)
+        # Run optimization if enough cones
+        if len(self.left_cones) >= 5 and len(self.right_cones) >= 5:
+            self.optimize_trajectory()
+    
+    def optimize_trajectory(self):
+        """Use TUM optimizer to generate racing line"""
+        if not self.tum_optimizer:
+            return
         
-        # Statistics
-        self.detection_count = 0
-        self.last_detection_time = self.get_clock().now()
+        try:
+            reftrack = self.tum_optimizer.cones_to_reftrack(
+                self.left_cones,
+                self.right_cones,
+                min_points=5
+            )
+            
+            if reftrack is not None:
+                trajectory = self.tum_optimizer.optimize_trajectory(reftrack, opt_type='mincurv')
+                
+                if trajectory is not None:
+                    self.optimized_trajectory = trajectory
+                    self.get_logger().info(f'Optimized path: {len(trajectory)} waypoints')
+        except Exception as e:
+            self.get_logger().error(f'Optimization failed: {e}')
+    
+    def pose_callback(self, msg):
+        """Update vehicle pose"""
+        self.current_pose = (msg.pose.position.x, msg.pose.position.y)
+    
+    def main_loop(self):
+        """Publish path at 5 Hz"""
+        if self.optimized_trajectory is None or len(self.optimized_trajectory) == 0:
+            return
         
-        self.get_logger().info('Path Planner Node initialized')
-        self.get_logger().info('Subscribed to /detected_cones from YOLO')
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'map'
+        
+        for pt in self.optimized_trajectory:
+            pose = PathPose()
+            pose.header.frame_id = 'map'
+            pose.pose.position.x = float(pt[0])
+            pose.pose.position.y = float(pt[1])
+            pose.pose.position.z = 0.0
+            pose.pose.orientation.w = 1.0
+            path_msg.poses.append(pose)
+        
+        self.path_pub.publish(path_msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = PathPlannerNode()
+    
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
     
     def yolo_cones_callback(self, msg):
         """
@@ -78,12 +147,16 @@ class PathPlannerNode(Node):
         3 = unknown cone
         -1 = invalid
         """
+        # Log raw message for debugging
+        self.get_logger().debug(f'Received cone data: {msg.data[:100]}...')
+        
         # Clear previous detections for fresh update
         self.left_cones = []
         self.right_cones = []
         self.orange_cones = []
         
         if not msg.data.strip():
+            self.get_logger().warning('Received empty cone detection message')
             return
         
         lines = msg.data.strip().split('\n')
@@ -127,19 +200,85 @@ class PathPlannerNode(Node):
         current_time = self.get_clock().now()
         time_diff = (current_time - self.last_detection_time).nanoseconds / 1e9
         
-        # Log every 50 detections or every 5 seconds
-        if self.detection_count % 50 == 0 or time_diff > 5.0:
+        # Always log basic stats, detailed every 10 detections
+        if self.detection_count % 10 == 0 or time_diff > 2.0:
             self.get_logger().info(
-                f'YOLO Detections #{self.detection_count}: '
+                f'✅ YOLO Detections #{self.detection_count}: '
                 f'{len(self.left_cones)} blue, '
                 f'{len(self.right_cones)} yellow, '
-                f'{len(self.orange_cones)} orange cones'
+                f'{len(self.orange_cones)} orange | '
+                f'Valid: {valid_detections} cones'
             )
             self.last_detection_time = current_time
+        
+        # Log first few detections in detail for verification
+        if self.detection_count <= 3:
+            self.get_logger().info(
+                f'🔍 First detections - Blue cones: {self.left_cones[:3]}, '
+                f'Yellow cones: {self.right_cones[:3]}'
+            )
         
         # Update centerline when we have sufficient cone data
         if len(self.left_cones) > 0 or len(self.right_cones) > 0:
             self.generate_centerline()
+            
+            # Run TUM optimization if available and enough cones
+            if self.tum_optimizer and len(self.left_cones) >= 5 and len(self.right_cones) >= 5:
+                self.optimize_trajectory_tum()
+    
+    def optimize_trajectory_tum(self):
+        """Use TUM optimizer to generate optimal racing line"""
+        try:
+            self.get_logger().info(
+                f'🚀 Starting TUM optimization with {len(self.left_cones)} blue, '
+                f'{len(self.right_cones)} yellow cones'
+            )
+            
+            # Convert cones to TUM reference track format
+            reftrack = self.tum_optimizer.cones_to_reftrack(
+                self.left_cones,
+                self.right_cones,
+                min_points=5
+            )
+            
+            if reftrack is not None:
+                self.get_logger().info(f'📊 Generated reftrack with {len(reftrack)} points')
+                
+                # Run optimization (use 'mincurv' for minimum curvature)
+                # Options: 'shortest_path', 'mincurv', or 'mintime'
+                trajectory = self.tum_optimizer.optimize_trajectory(
+                    reftrack,
+                    opt_type='mincurv'
+                )
+                
+                if trajectory is not None:
+                    self.optimized_trajectory = trajectory
+                    # Calculate some statistics
+                    path_length = sum(
+                        np.hypot(trajectory[i+1, 0] - trajectory[i, 0],
+                                trajectory[i+1, 1] - trajectory[i, 1])
+                        for i in range(len(trajectory) - 1)
+                    )
+                    max_curvature = np.max(np.abs(trajectory[:, 3]))
+                    avg_velocity = np.mean(trajectory[:, 4])
+                    
+                    self.get_logger().info(
+                        f'🏁 TUM optimization SUCCESS:\n'
+                        f'  - Waypoints: {len(trajectory)}\n'
+                        f'  - Path length: {path_length:.2f}m\n'
+                        f'  - Max curvature: {max_curvature:.4f} rad/m\n'
+                        f'  - Avg velocity: {avg_velocity:.2f} m/s'
+                    )
+                else:
+                    self.get_logger().warning('❌ TUM optimization returned None, using simple centerline')
+            else:
+                self.get_logger().warning('❌ Failed to create reftrack, using simple centerline')
+                    
+        except Exception as e:
+            self.get_logger().error(f'❌ TUM optimization error: {e}')
+            import traceback
+            self.get_logger().error(f'Traceback: {traceback.format_exc()}')
+            self.optimized_trajectory = None
     
     def pose_callback(self, msg):
         """Update current vehicle pose"""
@@ -147,6 +286,7 @@ class PathPlannerNode(Node):
             msg.pose.position.x,
             msg.pose.position.y
         )
+        self.get_logger().debug(f'Pose updated: {self.current_pose}')
     
     def generate_centerline(self):
         """
@@ -196,30 +336,40 @@ class PathPlannerNode(Node):
     def main_loop(self):
         """
         Main planning loop - called at 5 Hz
-        Implement your path planning algorithm here
+        Publishes optimized trajectory or simple centerline
         """
-        if not self.centerline:
-            return
+        # Use TUM optimized trajectory if available, otherwise use simple centerline
+        path_points = []
         
-        # TODO: Implement your path planning algorithm
-        # Example: Pure pursuit, RRT*, MPC, etc.
+        if self.optimized_trajectory is not None and len(self.optimized_trajectory) > 0:
+            # Use TUM optimized trajectory: [x, y, heading, curvature, velocity]
+            path_points = [(pt[0], pt[1]) for pt in self.optimized_trajectory]
+            self.get_logger().debug(f'Using TUM optimized trajectory with {len(path_points)} points')
+        elif self.centerline:
+            # Fallback to simple centerline
+            path_points = self.centerline
+            self.get_logger().debug(f'Using simple centerline with {len(path_points)} points')
+        else:
+            return
         
         # Publish the planned path
         path_msg = Path()
         path_msg.header.stamp = self.get_clock().now().to_msg()
-        path_msg.header.frame_id = 'map'  # Adjust frame_id as needed
+        path_msg.header.frame_id = 'map'
         
-        for point in self.centerline:
+        for x, y in path_points:
             pose = PathPose()
-            pose.header = path_msg.header
-            pose.pose.position.x = point[0]
-            pose.pose.position.y = point[1]
+            pose.header.frame_id = 'map'
+            pose.pose.position.x = float(x)
+            pose.pose.position.y = float(y)
             pose.pose.position.z = 0.0
             pose.pose.orientation.w = 1.0  # Neutral orientation
             path_msg.poses.append(pose)
         
         if len(path_msg.poses) > 0:
             self.path_pub.publish(path_msg)
+            self.get_logger().debug(f'Published path with {len(path_msg.poses)} poses')
+
     
     def get_all_obstacles(self, cone_radius: float = 0.3) -> List[Tuple[float, float, float]]:
         """
