@@ -3,6 +3,8 @@ Some tests for the control team's MPC algorithm
 
 This requires ros2 humble to be installed on your system in order to work
 
+matplotlib graphs will be stored in test_plots/
+
 run with pytest MPC_Visual_Test.py -v
 """
 
@@ -14,20 +16,32 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from MPC.main import Model_Predictive_Control
+from model.vehical_model import Dynamics_Model, Vehicle_Constants, Vehicle_Input, Vehicle_State
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped,Pose
 from std_msgs.msg import Header
 
-def convertListToPoses(pointsList:list[tuple[float,float]]) -> list[PoseStamped]:
+def convertListToPath(pointsList:list[tuple[float,float]]) -> Path:
     poseList = []
     for point in pointsList:
         pose = PoseStamped()
-        pose.pose.position.x = point[0]
-        pose.pose.position.y = point[1]
+        pose.pose.position.x = float(point[0])
+        pose.pose.position.y = float(point[1])
         pose.pose.position.z = 0.0
         poseList.append(pose)
     
-    return poseList
+    path = Path()
+    path.poses = poseList
+    path.header = Header()
+    return path
+
+def convertStatesToList(states:list[Vehicle_State]) -> list[float]:
+    points = []
+    for state in states:
+        point = (state.xpos, state.ypos)
+        points.append(point)
+
+    return points
 
 def isPathGoodEnough(desiredPath, predictedPath) -> bool:
     return True
@@ -42,6 +56,7 @@ path_hairpin_right = []
 path_chicane_left = []
 path_chicane_right = []
 
+mpc = Model_Predictive_Control(0.01)
 
 @pytest.fixture
 def save_plot():
@@ -89,7 +104,18 @@ class TestMPCFromStationaryAnd0_0:
         """Test if MPC algorithm works with a straight line (like in the acceleration mission)"""
 
         #TEMPORARY
-        predictedPath = [(1,0),(2,1),(3,2),(4,3),(4,4),(3,5),(2,6),(1,7),(1,8),(1,9)]
+        #predictedPath = [(1,0),(2,1),(3,2),(4,3),(4,4),(3,5),(2,6),(1,7),(1,8),(1,9)]
+
+        # get the inputs the MPC algorithm produces
+        predictedInputs = mpc.main(Vehicle_State(x_pos=0,y_pos=0,x_speed=0,y_speed=0,yaw_angle=0,yaw_rate=0,wheel_rpm=0,steering_angle_rad=0),
+                                   convertListToPath(path_straight)
+                                   )
+        
+        # convert those inputs into points for a comparison
+        predictedStates = mpc.forward_simulation(predictedInputs)
+
+        # convert states into points
+        predictedPath = convertStatesToList(predictedStates)
         
         save_plot(path_straight, predictedPath, "Test_Plot")
 

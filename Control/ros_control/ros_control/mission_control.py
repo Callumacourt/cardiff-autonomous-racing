@@ -38,8 +38,9 @@ class Mission_Control:
 
         try:
             commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#get required path from path planning, not sure where to get initial state from
-            acceleration = commands.acceleration 
-            steering_angle = commands.steering_angle
+            command = commands[0]
+            acceleration = command.acceleration 
+            steering_angle = command.steering_angle
         except Exception as e:
             if current_state.directional_velocity < 5.0 or current_state.wheels_rpm < 200:
                 pass
