@@ -30,6 +30,93 @@ docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && 
 #   - Add → By topic → /yolo_annotated_image → Image (camera feed with bounding boxes)
 ```
 
+# ----- WSL (Windows) ----- #
+## Prerequisites for WSL Users
+
+Before running the perception stack on WSL, ensure you have:
+
+1. **WSL2 installed** (Windows 10 or 11)
+   ```powershell
+   # In PowerShell (Admin)
+   wsl --install
+   wsl --set-default-version 2
+   ```
+
+2. **Docker Desktop for Windows** with WSL2 backend enabled
+   - Install Docker Desktop
+   - Settings → General → "Use the WSL 2 based engine" (enabled)
+   - Settings → Resources → WSL Integration → Enable for your distro
+
+3. **Clone this repo inside WSL** (not Windows filesystem)
+   ```bash
+   # Inside WSL
+   cd ~
+   git clone <repo-url> cardiff-autonomous-racing
+   cd cardiff-autonomous-racing
+   ```
+
+4. **(Optional) WSLg for GUI** — Windows 11 only
+   - WSLg comes with Windows 11 by default (GUI apps work out of the box)
+   - Check: `echo $DISPLAY` should show `:0` or similar
+   - If not set, update WSL: `wsl --update`
+
+---
+
+## Run with GUI (Windows 11 + WSLg)
+
+Recommended for Windows 11 users. Pangolin viewer and RViz will open in Windows.
+
+```bash
+# 1. Start containers
+docker compose up -d base perception eufs_sim
+
+# 2. Start detector & mapper (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
+
+# 3. Launch SLAM with Pangolin viewer (opens ~10s later)
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
+
+# 4. Verify it's working (in another terminal)
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic hz /odometry/slam"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /detected_cones --once"
+```
+
+---
+
+## Run Headless (Windows 10 or no GUI)
+
+For Windows 10 or when you don't need visualization. All processing runs; topics publish normally.
+
+```bash
+# 1. Start containers
+docker compose up -d base perception eufs_sim
+
+# 2. Start detector & mapper (background)
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
+docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
+
+# 3. Launch SLAM headless (no viewer window)
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=false imu_topic:=/imu/data"
+
+# 4. Verify it's working (in another terminal)
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic hz /odometry/slam"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /detected_cones --once"
+```
+
+**What works headless:**
+- Full perception pipeline (YOLO, cone mapper, SLAM)
+- All ROS2 topics publish normally
+- Recording/playback with `ros2 bag`
+- Topic inspection, logging, and tests
+
+**What doesn't work:**
+- Pangolin viewer window
+- RViz visualization
+- Interactive GUI tools (`rqt_image_view`, etc.)
+
+---
+
 ## What's Running
 
 - **racing_base** - Base ROS2 Humble container (car-base image)
@@ -138,31 +225,26 @@ docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic echo 
 
 If the Pangolin window fails to open, rerun `xhost +local:docker` before starting the stack.
 
-## Architecture
+### Visualising cones & SLAM
 
-**Docker Images:**
-- `car-base` - Base ROS2 Humble with common dependencies (~10GB)
-- `car-perception` - YOLOv8 + Pangolin + ORB-SLAM3 + ROS 2 nodes (~12GB)
-- `car-eufs` - EUFS sim + RViz plugins for visualization (5.6GB)
+Quick commands to inspect cone publishing and SLAM (run inside the perception container):
 
-**Files explained:**
-- `docker/Dockerfile.perception` - Builds YOLO perception stack, Pangolin, ORB-SLAM3, and `slam_example`
-- `docker/Dockerfile.eufs_sim` - Builds EUFS simulation with RViz plugins
-- `docker/entrypoint_perception.sh` - Sources Humble/workspace and exports ORB paths
-- `docker/entrypoint_eufs_sim.sh` - Launches sim with `launch_group:=default`
-- `perception_ws/src/cone_detector/cone_detector/YOLO_cone_detector.py` - Cone detector node (YOLO + depth)
-- `perception_ws/src/slam_example` - ROS 2 wrapper publishing `/odometry/slam`
-- `perception_ws/ORB_SLAM3` - Upstream ORB-SLAM3 sources (built via `./build.sh`)
-- `perception_ws/src/slam_example/config/ORBvoc.txt` - Vocabulary shipped inside the image
-- `best.pt` - Trained YOLOv8 model (copied to `/workspace/perception_ws/models/`)
+```bash
+# start an interactive shell in the perception container
+docker exec -it racing_perception bash -c "source /entrypoint.sh && bash"
 
-**Data Flow:**
-```
-EUFS Sim → Camera/Depth → YOLO Detector → Planner outputs & SLAM
-                ↓                               ↓
-         Ground Truth Cones            /detected_cones
-                                      /yolo_annotated_image
-                                      /perception/cones
-                                      /cone_cloud/local
-                                      /odometry/slam
+# Echo the latest detected cones once
+docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic echo /detected_cones --once"
+
+# See publish rates for key topics
+docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic hz /detected_cones /cone_cloud/local /odometry/slam"
+
+# View the YOLO annotated camera feed
+docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 run rqt_image_view rqt_image_view /yolo_annotated_image"
+
+# Visualise node/topic graph
+docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 run rqt_graph rqt_graph"
+
+# Launch RViz (then add displays listed below)
+docker exec -it racing_perception bash -c "source /entrypoint.sh && rviz2"
 ```

@@ -1,3 +1,5 @@
+import os
+import platform
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
@@ -19,9 +21,19 @@ def generate_launch_description():
     vocab_arg = LaunchConfiguration('vocab_path')
     config_arg = LaunchConfiguration('config_path')
 
+    # Decide sensible default for `viewer`: enable only if DISPLAY is present
+    # and we're not running under WSL without an X server. Users can still
+    # override via launch argument (viewer:=true/false).
+    has_display = bool(os.environ.get('DISPLAY'))
+    try:
+        is_wsl = 'microsoft' in platform.uname().release.lower()
+    except Exception:
+        is_wsl = False
+    default_viewer = 'true' if has_display and not is_wsl else 'false'
+
     return LaunchDescription([
         DeclareLaunchArgument(
-            'viewer', default_value='true',
+            'viewer', default_value=default_viewer,
             description='Enable Pangolin viewer (requires DISPLAY forwarding).'),
         DeclareLaunchArgument(
             'left_image_topic', default_value='/zed/left/image_rect_color',
