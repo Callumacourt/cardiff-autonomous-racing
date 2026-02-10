@@ -45,7 +45,7 @@ Before running the perception stack on WSL, ensure you have:
 2. **Docker Desktop for Windows** with WSL2 backend enabled
    - Install Docker Desktop
    - Settings → General → "Use the WSL 2 based engine" (enabled)
-   - Settings → Resources → WSL Integration → Enable for your distro
+   - Settings → Resources → WSL Integration → Enable for your distro (Ubuntu)
 
 3. **Clone this repo inside WSL** (not Windows filesystem)
    ```bash
@@ -64,7 +64,7 @@ Before running the perception stack on WSL, ensure you have:
 
 ## Run with GUI (Windows 11 + WSLg)
 
-Recommended for Windows 11 users. Pangolin viewer and RViz will open in Windows.
+For Windows 11 users. Pangolin viewer and RViz will open in Windows.
 
 ```bash
 # 1. Start containers
@@ -86,7 +86,7 @@ docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2
 
 ## Run Headless (Windows 10 or no GUI)
 
-For Windows 10 or when you don't need visualization. All processing runs; topics publish normally.
+For Windows 10 or when you don't need visualisation. All processing runs; topics publish normally.
 
 ```bash
 # 1. Start containers
