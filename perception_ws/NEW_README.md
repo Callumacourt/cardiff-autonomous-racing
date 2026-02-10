@@ -55,7 +55,18 @@ Before running the perception stack on WSL, ensure you have:
    cd cardiff-autonomous-racing
    ```
 
-4. **(Optional) WSLg for GUI** — Windows 11 only
+4. **Initialize submodules (required)**
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+5. **Fix Docker permissions (if you see "permission denied")**
+   ```bash
+   sudo usermod -aG docker $USER
+   newgrp docker
+   ```
+
+6. **(Optional) WSLg for GUI** — Windows 11 only
    - WSLg comes with Windows 11 by default (GUI apps work out of the box)
    - Check: `echo $DISPLAY` should show `:0` or similar
    - If not set, update WSL: `wsl --update`
@@ -67,6 +78,12 @@ Before running the perception stack on WSL, ensure you have:
 For Windows 11 users. Pangolin viewer and RViz will open in Windows.
 
 ```bash
+# 0. Build images (first time only, or after Dockerfile changes)
+docker build -f docker/Dockerfile.base -t car-base:latest .
+docker build -f docker/Dockerfile.control -t car-control:latest .
+docker build -f docker/Dockerfile.eufs_sim -t car-eufs:latest .
+docker build -f docker/Dockerfile.perception -t car-perception:latest . --progress=plain
+
 # 1. Start containers
 docker compose up -d base perception eufs_sim
 
@@ -89,6 +106,12 @@ docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2
 For Windows 10 or when you don't need visualisation. All processing runs; topics publish normally.
 
 ```bash
+# 0. Build images (first time only, or after Dockerfile changes)
+docker build -f docker/Dockerfile.base -t car-base:latest .
+docker build -f docker/Dockerfile.control -t car-control:latest .
+docker build -f docker/Dockerfile.eufs_sim -t car-eufs:latest .
+docker build -f docker/Dockerfile.perception -t car-perception:latest . --progress=plain
+
 # 1. Start containers
 docker compose up -d base perception eufs_sim
 
@@ -248,3 +271,5 @@ docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 run rqt
 # Launch RViz (then add displays listed below)
 docker exec -it racing_perception bash -c "source /entrypoint.sh && rviz2"
 ```
+
+**Build time note:** `car-perception` can take 20-60+ minutes. To verify it is still working, use `docker stats` or check Docker Desktop's Build view.
