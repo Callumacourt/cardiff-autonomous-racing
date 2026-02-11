@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Improved Real-time 2D visualization with better zoom and clarity
 """
