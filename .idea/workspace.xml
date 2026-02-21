@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b9a5483f-f84b-4b33-8392-29637861e56d" name="Changes" comment="EXPERIMENTAL: Added exception handling and basic logging to the algorithm to better handle edge cases. Known bug where algorithm reaches goal but states it is only completed partially." />
+    <list default="true" id="b9a5483f-f84b-4b33-8392-29637861e56d" name="Changes" comment="EXPERIMENTAL: Added exception handling and basic logging to the algorithm to better handle edge cases. Known bug where algorithm reaches goal but states it is only completed partially.">
+      <change beforePath="$PROJECT_DIR$/Control/logs/control_output.log" beforeDir="false" afterPath="$PROJECT_DIR$/Control/logs/control_output.log" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -25,20 +27,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;path-planning-development&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "path-planning-development",
+    "last_opened_file_path": "//wsl$/Ubuntu-22.04/home/dom/cardiff-autonomous-racing",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.main">
     <configuration name="dummy_inputs" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="cardiff-autonomous-racing" />
@@ -106,6 +109,7 @@
       <updated>1747714187180</updated>
       <workItem from="1747714190375" duration="4803000" />
       <workItem from="1747865101767" duration="1502000" />
+      <workItem from="1768788302620" duration="50000" />
     </task>
     <task id="LOCAL-00001" summary="Updated .gitignore and deleted redundant legacy code directory.">
       <option name="closed" value="true" />
