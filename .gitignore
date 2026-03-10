@@ -1,5 +1,64 @@
+# ROS2 Build Artifacts
 build/
 install/
 log/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+*.whl
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Machine Learning Models
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pb
+*.tflite
+
+# IDE and Editors
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.code-workspace
+
+# OS Specific
+Thumbs.db
+.DS_Store
+*.log
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ROS Specific
+COLCON_IGNORE
+*.pyc
+devel/
+.catkin_workspace
+
+# Docker
+*.tar
+.dockerignore
+
+# Project Specific
 Control/logs/
+best.pt
+CANCELED
+ERROR
+transferring
+reading

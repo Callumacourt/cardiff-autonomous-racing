@@ -258,7 +258,60 @@ source /your/dir/structure/cardiff-autonomous-racing/install/setup.bash
 # Rebuild if package structure changed
 colcon build --packages-select path_planning --symlink-install
 ```
+## GUI Testing Tool
 
+The `path_planning_gui.py` provides a comprehensive interactive testing and visualization environment for the path planning system.
+
+### Features
+- **Interactive Cone Placement**: Click to place blue (left), yellow (right), and orange cones
+- **Predefined Scenarios**: Straight track, curves, chicane, hairpin, oval, figure-8, slalom
+- **Real-time Optimization**: Run TUM optimizer with different settings (minimum curvature, shortest path)
+- **Visual Feedback**: See reference track, centerline, optimized trajectory with velocity heatmap
+- **Statistics Display**: Real-time path metrics (length, curvature, velocity)
+- **Scenario Management**: Save/load custom scenarios as JSON files
+- **Plot Export**: Export visualizations as PNG/PDF
+- **ROS 2 Integration**: Publish cones and paths to ROS 2 topics for system integration testing
+- **Vehicle Simulation**: Place and visualize car position
+
+### Running the GUI
+
+```bash
+cd /home/dom/cardiff-autonomous-racing/Path_Planning
+
+# Make sure dependencies are installed
+pip3 install matplotlib tkinter
+
+# Run the GUI
+python3 path_planning_gui.py
+```
+
+### GUI Usage Guide
+
+1. **Select a Scenario**: Choose from predefined scenarios in the left panel or start with "Custom"
+2. **Place Cones**:
+   - Click "Place Blue Cones (Left)" button
+   - Click on the plot to place cones
+   - Repeat for yellow (right) and orange cones
+3. **Place Car**: Click "Place Car" and click on plot to set vehicle position
+4. **Configure Optimization**:
+   - Choose optimization type (Minimum Curvature recommended)
+   - Adjust vehicle width if needed
+5. **Run Optimization**: Click "Run Optimization" to generate the racing line
+6. **View Results**: See the optimized trajectory, statistics, and velocity profile
+7. **Export/Save**:
+   - Save scenario as JSON for later use
+   - Export plot as high-resolution image
+
+### ROS 2 Integration Testing
+
+The GUI can publish data to ROS 2 topics for integration testing:
+
+1. Enable ROS 2 in the GUI: Check "Enable ROS 2 Publishing"
+2. Click "Publish Cones" to send cone data to `/detected_cones`
+3. Click "Publish Path" to send optimized path to `/planned_path`
+4. Use this to test the full perception → planning → control pipeline
+
+This allows you to test the path planning node without running the full perception stack.
 ## Legacy Code
 
 The `Legacy code/` directory contains the original RRT* implementation and earlier integration attempts. This is kept for reference but is not part of the current system.

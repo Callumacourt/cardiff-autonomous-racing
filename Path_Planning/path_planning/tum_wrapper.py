@@ -8,7 +8,7 @@ import sys
 import os
 
 # Add TUM optimizer to path
-tum_path = os.path.join(os.path.dirname(__file__), 'tum_optimizer')
+tum_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tum_optimizer')
 if os.path.exists(tum_path) and tum_path not in sys.path:
     sys.path.insert(0, tum_path)
 
