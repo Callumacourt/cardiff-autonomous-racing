@@ -1,8 +1,0 @@
-numpy
-matplotlib
-pygame
-scipy
-trajectory-planning-helpers>=0.76
-casadi>=3.5.5
-cvxpy
-quadprog
