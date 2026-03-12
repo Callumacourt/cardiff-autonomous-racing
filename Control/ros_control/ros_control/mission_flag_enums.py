@@ -32,3 +32,13 @@ class demoFlag(Enum):
     BRAKE = 4 #Brake to complete stop
     REPEAT = 5 #Accelerate for another 10m
     EMGCBRAKE = 6 #Activate emergency brake
+
+class SkidpanFlag(Enum):
+    """
+    Represents the current progress of the Skidpan mission
+    and what the vehicle's current objective is.
+    """
+    StraightToTimekeepingLine = 0
+    Right = 1
+    Left = 2
+    StopInZone = 3
