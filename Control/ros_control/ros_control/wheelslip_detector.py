@@ -1,8 +1,8 @@
 from time import time, sleep
 import numpy as np
 
+from model.vehical_model import Vehicle_Constants
 
-WHEEL_RADIUS = 0.253
 
 
 class Timestep:
@@ -25,13 +25,13 @@ class Timestep:
 
     def _calculate_expected_rpm(self):
         # convert RPM to velocity (m/s)
-        u = self._initial_rpm * 2 * np.pi * WHEEL_RADIUS / 60
+        u = self._initial_rpm * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
 
         # apply acceleration (currently assumes infinite grip, and no delay between sending a command and the motor implementing it)
         v = u + self._expected_acceleration * self._length # v = u + at
 
         # convert velocity back to RPM
-        return v * 60 / (2 * np.pi * WHEEL_RADIUS)
+        return v * 60 / (2 * np.pi * Vehicle_Constants.WHEEL_RADIUS)
     
     # just getters, none of the attributes should change once a timestep has begun
     def get_expected_acceleration(self):
@@ -62,8 +62,8 @@ class Symmetric_Wheelslip_Detector:
         """
         initial_time = self._current_timestep.get_initial_time()
         delta_t = time() - initial_time
-        u = self._current_timestep.get_initial_rpm() * 2 * np.pi * WHEEL_RADIUS / 60
-        v = current_rpm * 2 * np.pi * WHEEL_RADIUS / 60
+        u = self._current_timestep.get_initial_rpm() * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
+        v = current_rpm * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
 
         return (v - u) / delta_t
 
