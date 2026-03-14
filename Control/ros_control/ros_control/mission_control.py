@@ -3,13 +3,14 @@ from MPC.main import Model_Predictive_Control
 from model.vehical_model import Vehicle_State
 from nav_msgs.msg import Path
 from mission_flag_enums import *
+import math
 
 class Mission_Control:
     def __init__(self,mpc_unit:Model_Predictive_Control,timer_period:float,logger,trigger_ebs) -> None:
         self.__static_A_flag = AFlag.LEFT#flag that indicates the progress through the static inspection A mission
         self.__static_B_flag = BFlag.ACCELERATE#flag that indicates the progress through the static inspection B mission
         self.__autonomous_demo_flag = demoFlag.LEFT#flag that indicates the progress through the autonomous demonstration mission
-
+        self.__accelFlag = accelFlag.ACCELERATE#Flag that indicates the progress through the accelleration mission
         self.__mission_complete = False
 
         self.__ami_state = CanState.AMI_NOT_SELECTED
@@ -29,28 +30,60 @@ class Mission_Control:
         self.__static_A_flag = AFlag.LEFT
         self.__static_B_flag = BFlag.ACCELERATE
         self.__autonomous_demo_flag = demoFlag.LEFT
+        self.__accelFlag = accelFlag.ACCELERATE
 
     def __acceleration(self,current_state:Vehicle_State,desired_path:Path) -> tuple[float, float]:
         acceleration = 0.0
         steering_angle = 0.0
         # msg.drive.speed=10.0    
         self.logger().info("AS_Driving")
-
-        try:
-            commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#get required path from path planning, not sure where to get initial state from
+        # accelerate along path
+        if self.__accelFlag == accelFlag.ACCELERATE:
+            self.logger().info("Sub task: Accelerate")
+            distance_travelled = math.sqrt(current_state.xpos**2 + current_state.ypos**2) #distance to origin (0,0)
+            if distance_travelled < 75:
+                try:
+                    commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#get required path from path planning, not sure where to get initial state from
+                    acceleration = commands.acceleration 
+                    steering_angle = commands.steering_angle
+                except Exception as e:
+                    if current_state.directional_velocity < 5.0 or current_state.wheels_rpm < 200:
+                        pass
+            else:
+                self.__accelFlag = accelFlag.BRAKE
+        #Brake after 75m travelled 
+        if self.__accelFlag == accelFlag.BRAKE: 
+            self.logger().info("Sub task: Brake")
+            commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#let mpc brake and make any steering adjustments needed
+            #cost function will need to now reward braking and massivly penalise accelerating or high speeds
             acceleration = commands.acceleration 
             steering_angle = commands.steering_angle
-        except Exception as e:
-            if current_state.directional_velocity < 5.0 or current_state.wheels_rpm < 200:
-                pass
-        acceleration = 1.0 # make sure these are floats
-        steering_angle = 0.0
-        self.logger().info(f'created accelleration command')
-        # msg.drive.steering_angle_velocity
-        # msg.drive.jerk
-        #self.publisher_.publish(msg)
-        #self.logger().info(f'Publishing: "{msg.drive}"')
-        #self.logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
+
+            if current_state.wheels_rpm <= 0.1:
+                self.__accelFlag = accelFlag.COMPLETE
+
+        if self.__accelFlag == accelFlag.COMPLETE and not self.__mission_complete:
+            #set mission complete
+            self.__mission_complete = True
+            self.__accelFlag = accelFlag.ACCELERATE
+            #self.logger().info("Mission complete published!")
+
+        # try:
+        #     commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#get required path from path planning, not sure where to get initial state from
+        #     acceleration = commands.acceleration 
+        #     steering_angle = commands.steering_angle
+        # except Exception as e:
+        #     if current_state.directional_velocity < 5.0 or current_state.wheels_rpm < 200:
+        #         pass
+        
+        # acceleration = 1.0 # make sure these are floats
+        # steering_angle = 0.0
+        # self.logger().info(f'created accelleration command')
+        # # msg.drive.steering_angle_velocity
+        # # msg.drive.jerk
+        # #self.publisher_.publish(msg)
+        # #self.logger().info(f'Publishing: "{msg.drive}"')
+        # #self.logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
         return float(acceleration),float(steering_angle)
 
     def __skidpan(self) -> tuple[float,float]:

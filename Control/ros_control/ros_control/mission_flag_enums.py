@@ -32,3 +32,12 @@ class demoFlag(Enum):
     BRAKE = 4 #Brake to complete stop
     REPEAT = 5 #Accelerate for another 10m
     EMGCBRAKE = 6 #Activate emergency brake
+
+class accelFlag(Enum):
+    """
+    Represents the current progress of the Accelleration
+    mission and what the vehicle's current objective is. 
+    """
+    ACCELERATE = 0
+    BRAKE = 1
+    COMPLETE = 2
