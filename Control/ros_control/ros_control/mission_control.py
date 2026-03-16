@@ -47,17 +47,21 @@ class Mission_Control:
                     acceleration = commands.acceleration 
                     steering_angle = commands.steering_angle
                 except Exception as e:
-                    if current_state.directional_velocity < 5.0 or current_state.wheels_rpm < 200:
-                        pass
+                    acceleration = 0.0
+                    steering_angle = 0.0
             else:
                 self.__accelFlag = accelFlag.BRAKE
         #Brake after 75m travelled 
         if self.__accelFlag == accelFlag.BRAKE: 
             self.logger().info("Sub task: Brake")
-            commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#let mpc brake and make any steering adjustments needed
-            #cost function will need to now reward braking and massivly penalise accelerating or high speeds
-            acceleration = commands.acceleration 
-            steering_angle = commands.steering_angle
+            try:
+                commands = self.mpc_unit.main(initial_state=current_state,required_path=desired_path)#let mpc brake and make any steering adjustments needed
+                #cost function will need to now reward braking and massivly penalise accelerating or high speeds
+                acceleration = commands.acceleration 
+                steering_angle = commands.steering_angle
+            except Exception as e:
+                acceleration = -3.0 #might need to be increased
+                steering_angle = 0.0
 
             if current_state.wheels_rpm <= 0.1:
                 self.__accelFlag = accelFlag.COMPLETE
