@@ -11,6 +11,7 @@ class Mission_Control:
         self.__static_B_flag = BFlag.ACCELERATE#flag that indicates the progress through the static inspection B mission
         self.__autonomous_demo_flag = demoFlag.LEFT#flag that indicates the progress through the autonomous demonstration mission
         self.__accelFlag = accelFlag.ACCELERATE#Flag that indicates the progress through the accelleration mission
+        self.__autocrossFlag = autocrossFlag.START#Flag that indicates the progress through the autocross mission
         self.__mission_complete = False
 
         self.__ami_state = CanState.AMI_NOT_SELECTED
@@ -31,6 +32,7 @@ class Mission_Control:
         self.__static_B_flag = BFlag.ACCELERATE
         self.__autonomous_demo_flag = demoFlag.LEFT
         self.__accelFlag = accelFlag.ACCELERATE
+        self.__autocrossFlag = autocrossFlag.START
 
     def __acceleration(self,current_state:Vehicle_State,desired_path:Path) -> tuple[float, float]:
         acceleration = 0.0
@@ -96,8 +98,39 @@ class Mission_Control:
     def __track_drive(self) -> tuple[float,float]:
         return 0.0,0.0
 
-    def __autocross(self) -> tuple[float,float]:
-        return 0.0,0.0
+    def __autocross(self, current_state:Vehicle_State, desired_path:Path) -> tuple[float,float]:
+        acceleration = 0.0
+        steering_angle = 0.0
+        self.logger().info("AS_Driving")
+        #accelerate to start line
+        if self.__autocrossFlag == autocrossFlag.START:
+            self.logger().info("Sub task: START")
+            #go straight until start line crossed
+
+            #if line crossed
+                self.__autocrossFlag = autocrossFlag.LAP
+        
+        if self.__autocrossFlag == autocrossFlag.LAP:
+            self.logger().info("Sub task: LAP")
+            #follow path using MPC inputs
+
+            #if finish line crossed
+                self.__autocrossFlag = autocrossFlag.BRAKE
+            
+        if self.__autocrossFlag == autocrossFlag.BRAKE:
+            self.logger().info("Sub task: BRAKE")
+            #Brake until stopped
+
+            if current_state.wheels_rpm <= 0.1:
+                self.__autocrossFlag = autocrossFlag.COMPLETE
+
+        if self.__autocrossFlag == autocrossFlag.COMPLETE:
+            #set mission complete
+            self.__mission_complete = True
+            self.__autocrossFlag = autocrossFlag.START
+
+
+        return acceleration, steering_angle
 
     def __static_A(self,current_state:Vehicle_State) -> tuple[float, float]:
         self.logger().info("AS_Driving")

@@ -41,3 +41,15 @@ class accelFlag(Enum):
     ACCELERATE = 0
     BRAKE = 1
     COMPLETE = 2
+
+
+class autocrossFlag(Enum):
+    """
+    Represents the current progress of the Autocross mission
+    and what the vehicles current objective is.
+    """
+
+    START = 0
+    LAP = 1
+    BRAKE = 2
+    COMPLETE = 3
