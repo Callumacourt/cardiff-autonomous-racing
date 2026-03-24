@@ -39,6 +39,9 @@ class CmdNode(Node):
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
+        self.alpha = 0.1  # smoothing factor for EMA, between 0 and 1
+        self.filtered_rpm = 0.0
+        self.filtered_steering_angle_rad = 0.0
 
         
         #self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
@@ -123,7 +126,13 @@ class CmdNode(Node):
         self.current_state.wheels_rpm = (lb+lf+rb+rf)/4
         if self.eufs_sim:
             self.current_state.wheels_rpm -= 500
+        #EMA smoothing formula - rpm
+        self.filtered_rpm = self.alpha * self.current_state.wheels_rpm + (1 - self.alpha) * self.filtered_rpm
+        self.current_state.wheels_rpm = self.filtered_rpm
+        #EMA smoothing formula - steering rad
         self.current_state.steering_angle_rad = steering
+        self.filtered_steering_angle_rad = self.alpha * self.current_state.steering_angle_rad + (1 - self.alpha) * self.filtered_steering_angle_rad
+        self.current_state.steering_angle_rad = self.filtered_steering_angle_rad
         #import pdb; pdb.set_trace()
         self.get_logger().info(f"Recieved: Wheels_rpm: {self.current_state.wheels_rpm}, Steering_angle_rad: {self.current_state.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
