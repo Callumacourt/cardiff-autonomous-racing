@@ -108,14 +108,14 @@ class Mission_Control:
             #go straight until start line crossed
 
             #if line crossed
-                self.__autocrossFlag = autocrossFlag.LAP
+            #    self.__autocrossFlag = autocrossFlag.LAP
         
         if self.__autocrossFlag == autocrossFlag.LAP:
             self.logger().info("Sub task: LAP")
             #follow path using MPC inputs
 
             #if finish line crossed
-                self.__autocrossFlag = autocrossFlag.BRAKE
+            #    self.__autocrossFlag = autocrossFlag.BRAKE
             
         if self.__autocrossFlag == autocrossFlag.BRAKE:
             self.logger().info("Sub task: BRAKE")
@@ -154,7 +154,7 @@ class Mission_Control:
         if self.__static_A_flag == AFlag.CENTRE:
             self.logger().info("Sub task: Steer centre")
             steering_angle = 0.0
-            if current_state.steering_angle_rad == 0.0:
+            if abs(current_state.steering_angle_rad) <= 0.01:
                 self.__static_A_flag = AFlag.ACCELERATE
         #wheels to 200rpm
         if self.__static_A_flag == AFlag.ACCELERATE:
@@ -215,7 +215,7 @@ class Mission_Control:
         if self.__autonomous_demo_flag == demoFlag.CENTRE:
             self.logger().info("Sub task: Steer centre")
             steering_angle = 0.0
-            if current_state.steering_angle_rad == 0.0:
+            if abs(current_state.steering_angle_rad) <= 0.01:
                 self.__autonomous_demo_flag = demoFlag.ACCELERATE
         #accellerate for 10m to at least 15kph
         if self.__autonomous_demo_flag == demoFlag.ACCELERATE: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
