@@ -54,9 +54,11 @@ class Symmetric_Wheelslip_Detector:
     def start_timestep(self, expected_acceleration, initial_rpm):
         self._current_timestep = Timestep(length=self.timestep_size, expected_acceleration=expected_acceleration, initial_rpm=initial_rpm)
     
-    def _calculate_experienced_acceleration(self, current_rpm):
+    def _calculate_experienced_wheel_acceleration(self, current_rpm):
         """
         Should this calculate experienced acceleration from the initial to current or from previous to current?
+
+        Calculates the acceleration the wheels have done
         """
         initial_time = self._current_timestep.get_initial_time()
         delta_t = time() - initial_time
@@ -79,23 +81,23 @@ class Symmetric_Wheelslip_Detector:
         if current_time > self._current_timestep.get_final_time():
             print(f"WARNING, wheelslip timestep is {current_time - self._current_timestep.get_final_time()} seconds out of date! Unexpected TC/ABS may occur!")
         
-        experienced_acceleration = self._calculate_experienced_acceleration(current_rpm)
+        experienced_wheel_acceleration = self._calculate_experienced_wheel_acceleration(current_rpm)
         # if expected acceleration < 0, then car is breaking, check if rpm is too low
         if self._current_timestep.get_expected_acceleration() < 0:
             # if experienced > expected, then the wheels have not locked, so all is fine
-            if experienced_acceleration > self._current_timestep.get_expected_acceleration():
+            if experienced_wheel_acceleration > self._current_timestep.get_expected_acceleration():
                 mask =  1
             else:
-                mask = experienced_acceleration / self._current_timestep.get_expected_acceleration()
+                mask = experienced_wheel_acceleration / self._current_timestep.get_expected_acceleration()
 
         # if expected acceleration > 0, then car is accelerating, check if rpm is too high
         elif self._current_timestep.get_expected_acceleration() > 0:
             # if actual acceleration is < expected, then all is fine, keep going
-            if experienced_acceleration < self._current_timestep.get_expected_acceleration():
+            if experienced_wheel_acceleration < self._current_timestep.get_expected_acceleration():
                 mask = 1
             else:
                 # return the ratio between expected and experienced. This way experienced * ratio = expected
-                mask = self._current_timestep.get_expected_acceleration() / experienced_acceleration
+                mask = self._current_timestep.get_expected_acceleration() / experienced_wheel_acceleration
             
         # if expected acceleration == 0, then car is coasting, nothing should change?
         else:
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     mini_steps = 20
 
     future_rpms = [current_rpm + x*0.15 for x in range(mini_steps)]
-    #future_rpms = [50,50,50,50,50,50,50,50,50,50,60,60,60,60,60,60,60,60,60,60]
+    #future_rpms = [50,50,50,50,50,50,50,50,50,50,51,52,52,52,52,52,52,52,52,52]
     # wait t seconds
     for i in range(0, mini_steps):
         sleep(t/mini_steps)
