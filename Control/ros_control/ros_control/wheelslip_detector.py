@@ -86,7 +86,7 @@ class Symmetric_Wheelslip_Detector:
             if experienced_acceleration > self._current_timestep.get_expected_acceleration():
                 mask =  1
             else:
-                mask = self._current_timestep.get_expected_acceleration() / experienced_acceleration
+                mask = experienced_acceleration / self._current_timestep.get_expected_acceleration()
 
         # if expected acceleration > 0, then car is accelerating, check if rpm is too high
         elif self._current_timestep.get_expected_acceleration() > 0:
@@ -122,6 +122,7 @@ if __name__ == "__main__":
     mini_steps = 20
 
     future_rpms = [current_rpm + x*0.15 for x in range(mini_steps)]
+    #future_rpms = [50,50,50,50,50,50,50,50,50,50,60,60,60,60,60,60,60,60,60,60]
     # wait t seconds
     for i in range(0, mini_steps):
         sleep(t/mini_steps)
