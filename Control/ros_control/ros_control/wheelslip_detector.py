@@ -47,7 +47,7 @@ class Timestep:
 
 
 
-class Wheelslip_Detector:
+class Symmetric_Wheelslip_Detector:
     def __init__(self, timestep_size=0.05):
         self.timestep_size = timestep_size
     
@@ -55,6 +55,9 @@ class Wheelslip_Detector:
         self._current_timestep = Timestep(length=self.timestep_size, expected_acceleration=expected_acceleration, initial_rpm=initial_rpm)
     
     def _calculate_experienced_acceleration(self, current_rpm):
+        """
+        Should this calculate experienced acceleration from the initial to current or from previous to current?
+        """
         initial_time = self._current_timestep.get_initial_time()
         delta_t = time() - initial_time
         u = self._current_timestep.get_initial_rpm() * 2 * np.pi * WHEEL_RADIUS / 60
@@ -107,7 +110,7 @@ class Wheelslip_Detector:
 if __name__ == "__main__":
     t = 0.05 # the time in seconds between mpc predictions
 
-    ws_det = Wheelslip_Detector(timestep_size=t)
+    ws_det = Symmetric_Wheelslip_Detector(timestep_size=t)
 
     current_rpm = 50.0 # the rpm of the car's wheel (modeling the car as only having a single wheel for now)
 
@@ -118,11 +121,11 @@ if __name__ == "__main__":
 
     mini_steps = 20
 
-    future_rpms = [current_rpm + x for x in range(mini_steps)]
+    future_rpms = [current_rpm + x*0.15 for x in range(mini_steps)]
     # wait t seconds
     for i in range(0, mini_steps):
         sleep(t/mini_steps)
-        print(ws_det.check_for_wheelslip(future_rpms[i]))
+        print(future_rpms[i], ws_det.check_for_wheelslip(future_rpms[i]))
 
     # check what acceleration was achieved
 
