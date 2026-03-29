@@ -55,7 +55,7 @@ class Mission_Control:
         #self.logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
         return float(acceleration),float(steering_angle)
 
-    def __skidpan(self, current_state:Vehicle_State) -> tuple[float,float]:
+    def __skidpan(self, current_state:Vehicle_State, desiredPath:Path) -> tuple[float,float]:
 
         self.logger().info("AS_Skidpan")
 
@@ -221,7 +221,7 @@ class Mission_Control:
                     return self.__acceleration(current_state,desired_path)
             elif self.__ami_state == CanState.AMI_SKIDPAD:
                 if self.__as_state == CanState.AS_DRIVING:
-                    return self.__skidpan()
+                    return self.__skidpan(current_state=current_state, desiredPath=desired_path)
             elif self.__ami_state == CanState.AMI_AUTOCROSS:
                 if self.__as_state == CanState.AS_DRIVING:
                     return self.__autocross()
