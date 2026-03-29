@@ -63,22 +63,27 @@ class Mission_Control:
         steering_angle = 0.0
 
         if self.__skidpan_flag == SkidpanFlag.StraightToTimekeepingLine:
-            # go straight untill line crossed
-            
+            # go straight until line crossed
+            acceleration = 2.0
             # if line crossed
-                self.__skidpan_flag = SkidpanFlag.Right
+                #self.__skidpan_flag = SkidpanFlag.Right
         if self.__skidpan_flag == SkidpanFlag.Right:
+            pass
             # go around the right loop twice
 
             # if line crossed twice
-                self.__skidpan_flag = SkidpanFlag.Left
+                #self.__skidpan_flag = SkidpanFlag.Left
         if self.__skidpan_flag == SkidpanFlag.Left:
+            pass
             # go around the left loop twice
 
             # if timing line crossed twice
-                self.__skidpan_flag = SkidpanFlag.StopInZone
+                #self.__skidpan_flag = SkidpanFlag.StopInZone
         if self.__skidpan_flag == SkidpanFlag.StopInZone:
             # stop the car in the finish zone
+
+            # rn just slow car down with -acc, in the future have a cost function specifically for stopping at a point
+            acceleration = -5
 
             if current_state.wheels_rpm < 0.1 and not self.__mission_complete:
                 self.__mission_complete = True
