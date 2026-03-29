@@ -42,3 +42,24 @@ class SkidpanFlag(Enum):
     Right = 1
     Left = 2
     StopInZone = 3
+
+class accelFlag(Enum):
+    """
+    Represents the current progress of the Accelleration
+    mission and what the vehicle's current objective is. 
+    """
+    ACCELERATE = 0
+    BRAKE = 1
+    COMPLETE = 2
+
+
+class autocrossFlag(Enum):
+    """
+    Represents the current progress of the Autocross mission
+    and what the vehicles current objective is.
+    """
+
+    START = 0
+    LAP = 1
+    BRAKE = 2
+    COMPLETE = 3
