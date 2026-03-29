@@ -300,7 +300,7 @@ class Mission_Control:
                     return self.__skidpan(current_state=current_state, desiredPath=desired_path)
             elif self.__ami_state == CanState.AMI_AUTOCROSS:
                 if self.__as_state == CanState.AS_DRIVING:
-                    return self.__autocross()
+                    return self.__autocross(current_state=current_state, desired_path=desired_path)
             elif self.__ami_state == CanState.AMI_TRACK_DRIVE:
                 if self.__as_state == CanState.AS_DRIVING:
                     return self.__track_drive()
