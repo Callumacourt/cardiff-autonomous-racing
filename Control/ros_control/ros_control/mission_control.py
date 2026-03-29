@@ -10,6 +10,8 @@ class Mission_Control:
         self.__static_A_flag = AFlag.LEFT#flag that indicates the progress through the static inspection A mission
         self.__static_B_flag = BFlag.ACCELERATE#flag that indicates the progress through the static inspection B mission
         self.__autonomous_demo_flag = demoFlag.LEFT#flag that indicates the progress through the autonomous demonstration mission
+        self.__skidpan_flag = SkidpanFlag.StraightToTimekeepingLine # flag that indicates the progress through the skipan mission
+
         self.__accelFlag = accelFlag.ACCELERATE#Flag that indicates the progress through the accelleration mission
         self.__autocrossFlag = autocrossFlag.START#Flag that indicates the progress through the autocross mission
         self.__mission_complete = False
@@ -31,6 +33,7 @@ class Mission_Control:
         self.__static_A_flag = AFlag.LEFT
         self.__static_B_flag = BFlag.ACCELERATE
         self.__autonomous_demo_flag = demoFlag.LEFT
+        self.__skidpan_flag = SkidpanFlag.StraightToTimekeepingLine
         self.__accelFlag = accelFlag.ACCELERATE
         self.__autocrossFlag = autocrossFlag.START
 
@@ -92,8 +95,41 @@ class Mission_Control:
         # #self.logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
         return float(acceleration),float(steering_angle)
 
-    def __skidpan(self) -> tuple[float,float]:
-        return 0.0,0.0
+    def __skidpan(self, current_state:Vehicle_State, desiredPath:Path) -> tuple[float,float]:
+
+        self.logger().info("AS_Skidpan")
+
+        acceleration = 0.0
+        steering_angle = 0.0
+
+        if self.__skidpan_flag == SkidpanFlag.StraightToTimekeepingLine:
+            # go straight until line crossed
+            acceleration = 2.0
+            # if line crossed
+                #self.__skidpan_flag = SkidpanFlag.Right
+        if self.__skidpan_flag == SkidpanFlag.Right:
+            pass
+            # go around the right loop twice
+
+            # if line crossed twice
+                #self.__skidpan_flag = SkidpanFlag.Left
+        if self.__skidpan_flag == SkidpanFlag.Left:
+            pass
+            # go around the left loop twice
+
+            # if timing line crossed twice
+                #self.__skidpan_flag = SkidpanFlag.StopInZone
+        if self.__skidpan_flag == SkidpanFlag.StopInZone:
+            # stop the car in the finish zone
+
+            # rn just slow car down with -acc, in the future have a cost function specifically for stopping at a point
+            acceleration = -5
+
+            if current_state.wheels_rpm < 0.1 and not self.__mission_complete:
+                self.__mission_complete = True
+
+
+        return acceleration, steering_angle
 
     def __track_drive(self) -> tuple[float,float]:
         return 0.0,0.0
@@ -261,7 +297,7 @@ class Mission_Control:
                     return self.__acceleration(current_state,desired_path)
             elif self.__ami_state == CanState.AMI_SKIDPAD:
                 if self.__as_state == CanState.AS_DRIVING:
-                    return self.__skidpan()
+                    return self.__skidpan(current_state=current_state, desiredPath=desired_path)
             elif self.__ami_state == CanState.AMI_AUTOCROSS:
                 if self.__as_state == CanState.AS_DRIVING:
                     return self.__autocross()
