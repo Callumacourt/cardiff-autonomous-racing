@@ -123,7 +123,8 @@ class Model_Predictive_Control():
             inputs = unpack_inputs(u)
             return self.cost_function(initial_state, inputs,required_path)
 
-        res = minimize(objective, u0, bounds=bounds, method='L-BFGS-B', options={'maxiter': 100, 'disp': True})
+        #res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead', options={'maxiter': 100, 'disp': True})
+        res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead')
         
         best_inputs = unpack_inputs(res.x)
         
