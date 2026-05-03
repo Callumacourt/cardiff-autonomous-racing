@@ -54,7 +54,7 @@ class Dynamics_Model():
         lf: distance from centre of gravity to front axel (m)
         lr: distance from centre of gravity to rear axel (m)
         yaw_inertia: lateral inertia of the vehicle (kgm^2)"""
-    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500.0, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
+    def __init__(self, timestep:float=0.05, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500.0, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
         self.matPlotLib = matPlotLib
         self.state = state
         #self.input = input
