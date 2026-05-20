@@ -18,7 +18,7 @@ import numpy as np
 
 #
 from MPC.main import Model_Predictive_Control
-from model.vehical_model import Vehicle_Input, Vehicle_State
+from model.vehical_model import Vehicle_Input, Vehicle_State, Vehicle_Constants
 
 from mission_control import Mission_Control
 class CmdNode(Node):
@@ -26,9 +26,9 @@ class CmdNode(Node):
     def __init__(self):
         super().__init__('ros_control')
 
-        self.declare_parameter("eufs_simulate",value=False)
-        self.eufs_sim = self.get_parameter("eufs_simulate").get_parameter_value().bool_value
-        self.get_logger().info(f"using eufs sim: {self.eufs_sim}")
+        self.declare_parameter("eufs_simulate",value=0)
+        self.eufs_sim_type = self.get_parameter("eufs_simulate").get_parameter_value().integer_value
+        self.get_logger().info(f"using eufs sim: {self.eufs_sim_type}")
 
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
         self.get_logger().info("cmd publisher started")
@@ -49,8 +49,12 @@ class CmdNode(Node):
         self.WHEEL_RADIUS = 0.253
 
         #set up subscribers to get data from car
-        self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
-        self.get_logger().info("ros_can/state subscriber started")
+        if self.eufs_sim_type == 2:
+            self.can_state_sub = self.create_subscription(CanState,"sim/ros_can/state",self.can_state_callback,10)
+            self.get_logger().info("sim/ros_can/state subscriber started")
+        else:
+            self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
+            self.get_logger().info("ros_can/state subscriber started")
         self.wheel_speeds_sub = self.create_subscription(WheelSpeedsStamped,"ros_can/wheel_speeds",self.wheel_speeds_callback,10)
         self.get_logger().info("ros_can/wheel_speeds subscriber started")
         self.twist_sub = self.create_subscription(TwistWithCovarianceStamped,"ros_can/twist",self.twist_callback,10)
@@ -59,6 +63,9 @@ class CmdNode(Node):
         self.get_logger().info("ros_can/imu subscriber started")
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
         self.get_logger().info("ros_can/fix (sat nav) subscriber started")
+
+        self.sim_state_sub = self.create_subscription(CanState,"sim/ros_can/state",self.can_state_callback,10)
+        self.get_logger().info("sim/ros_can/state subscriber started")
 
         #set up subscriber(s) to get data via path planning
         self.path = None
@@ -124,8 +131,12 @@ class CmdNode(Node):
         # in RADIANS
         steering = wheels.steering
         self.current_state.wheels_rpm = (lb+lf+rb+rf)/4
-        if self.eufs_sim:
+        if self.eufs_sim_type == 1:
+            # there is a bug where the rpm is always 500 less then reality
             self.current_state.wheels_rpm -= 500
+        elif self.eufs_sim_type == 2:
+            # eufs sim 2 uses m/s rather than rpm in the msg, so convert
+            self.current_state.wheels_rpm = self.current_state.wheels_rpm * 1/(2*np.pi*Vehicle_Constants.WHEEL_RADIUS_m) * 60
         #EMA smoothing formula - rpm
         self.filtered_rpm = self.alpha * self.current_state.wheels_rpm + (1 - self.alpha) * self.filtered_rpm
         self.current_state.wheels_rpm = self.filtered_rpm

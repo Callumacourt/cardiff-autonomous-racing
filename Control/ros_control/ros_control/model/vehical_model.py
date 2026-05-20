@@ -17,6 +17,7 @@ class Vehicle_Constants():
     WEIGHT_REAR = 166
     #radians
     MAX_STEERING_ANGLE = 0.41999998688697815
+    WHEEL_RADIUS_m = 0.253
 
 
 class Vehicle_State():
