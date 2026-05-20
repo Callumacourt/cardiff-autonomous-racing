@@ -77,7 +77,10 @@ class CmdNode(Node):
         self.get_logger().info("Odometry/slam subscription started")
 
         #set up ebs client 
-        self.ebs_client = self.create_client(Trigger, "ros_can/ebs")
+        if self.eufs_sim_type == 2:
+            self.ebs_client = self.create_client(Trigger, "ebs")
+        else:
+            self.ebs_client = self.create_client(Trigger, "ros_can/ebs")
 
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
         
