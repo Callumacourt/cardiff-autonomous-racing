@@ -19,6 +19,8 @@ class BFlag(Enum):
     """
     ACCELERATE = 0 #Accelerate to 50rpm
     EMGCBRAKE = 1 #Activate emergency brake
+    WAIT_FOR_STOP = 2
+    COMPLETE = 3
 
 class demoFlag(Enum):
     """
