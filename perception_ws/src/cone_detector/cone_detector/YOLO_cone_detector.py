@@ -1,36 +1,43 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image, PointCloud2, PointField
+from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo
 from sensor_msgs_py import point_cloud2
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
-import message_filters  
+import message_filters
 from std_msgs.msg import String, Header
 import torch
-from ultralytics import YOLO  
+from ultralytics import YOLO
 
 
 class YOLOConeDetector3D(Node):
     def __init__(self):
         super().__init__('yolo_cone_detector_3d_node')
         self.bridge = CvBridge()
-        
+
         # Device detection and setup
         self.device = self.setup_device()
-        
+
         # Load YOLO model
         model_path = '/workspace/perception_ws/models/best.pt'  # Model copied by Dockerfile
         self.model = self.load_model(model_path)
-        
+
         # Model parameters
         self.conf_threshold = 0.5  # Confidence threshold
         self.iou_threshold = 0.45  # IoU threshold for NMS
         self.max_detection_distance = 20.0  # Maximum detection distance in meters
-        
+
         # Image masking parameters (remove upper third of image)
         self.mask_upper_fraction = 0.4  # Mask upper 33% of image
-        
+
+        # Camera intrinsics — populated from /zed/left/camera_info on first message
+        self.fx = None
+        self.fy = None
+        self.cx = None
+        self.cy = None
+        self.create_subscription(CameraInfo, '/zed/left/camera_info', self._camera_info_callback, 1)
+
         # Subscribe to RGB + depth images
         self.rgb_sub = message_filters.Subscriber(self, Image, '/zed/left/image_rect_color')
         self.depth_sub = message_filters.Subscriber(self, Image, '/zed/depth/image_raw')
@@ -202,6 +209,15 @@ class YOLOConeDetector3D(Node):
         
         return result
     
+    def _camera_info_callback(self, msg: CameraInfo):
+        if self.fx is not None:
+            return  # Already set
+        self.fx = msg.k[0]
+        self.fy = msg.k[4]
+        self.cx = msg.k[2]
+        self.cy = msg.k[5]
+        self.get_logger().info(f"Camera intrinsics loaded: fx={self.fx:.1f} fy={self.fy:.1f} cx={self.cx:.1f} cy={self.cy:.1f}")
+
     def mask_image_roi(self, image):
         """Mask the upper portion of the image to focus on relevant area"""
         height, width = image.shape[:2]
@@ -278,9 +294,11 @@ class YOLOConeDetector3D(Node):
         # Parse results
         detections = self.parse_yolo_results(results)
         
-        # Camera intrinsics
-        fx, fy = 525.0, 525.0
-        cx, cy = rgb_image.shape[1] // 2, rgb_image.shape[0] // 2
+        if self.fx is None:
+            self.get_logger().warn("Camera intrinsics not yet received, skipping frame")
+            return
+
+        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
         
         message_lines = []  # All cone lines to be published
         
