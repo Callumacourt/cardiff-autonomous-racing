@@ -12,14 +12,14 @@ xhost +local:docker
 # 2. Start containers
 docker compose up -d base perception eufs_sim
 
-# 3. Start YOLO detector (background)
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
+# 3. Launch full perception stack (all nodes in one command)
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example perception_full.launch.py"
 
-# 4. Start cone mapper (background)
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
+# Optional: enable Pangolin SLAM viewer (requires DISPLAY)
+# ros2 launch slam_example perception_full.launch.py viewer:=true
 
-# 5. Launch ORB-SLAM3 (interactive - viewer pops up ~10s later)
-docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
+# Optional: run without SLAM (cone detection only, car-frame output)
+# ros2 launch slam_example perception_full.launch.py use_slam:=false odom_topic:=/odom
 
 #   (EUFS publishes IMU data on `/imu/data`; if you need to double-check, run
 #    `docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic hz /imu/data --window 5'` before launching SLAM.)
@@ -87,16 +87,12 @@ docker build -f docker/Dockerfile.perception -t car-perception:latest . --progre
 # 1. Start containers
 docker compose up -d base perception eufs_sim
 
-# 2. Start detector & mapper (background)
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
+# 2. Launch full perception stack
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example perception_full.launch.py viewer:=true"
 
-# 3. Launch SLAM with Pangolin viewer (opens ~10s later)
-docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=true imu_topic:=/imu/data"
-
-# 4. Verify it's working (in another terminal)
+# 3. Verify it's working (in another terminal)
 docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic hz /odometry/slam"
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /detected_cones --once"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /cone_map/car_frame --once"
 ```
 
 ---
@@ -115,16 +111,12 @@ docker build -f docker/Dockerfile.perception -t car-perception:latest . --progre
 # 1. Start containers
 docker compose up -d base perception eufs_sim
 
-# 2. Start detector & mapper (background)
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector"
-docker exec -d racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper"
+# 2. Launch full perception stack (headless)
+docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example perception_full.launch.py viewer:=false"
 
-# 3. Launch SLAM headless (no viewer window)
-docker exec -it racing_perception bash -c "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 launch slam_example slam_stereo_inertial.launch.py viewer:=false imu_topic:=/imu/data"
-
-# 4. Verify it's working (in another terminal)
+# 3. Verify it's working (in another terminal)
 docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic hz /odometry/slam"
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /detected_cones --once"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /cone_cloud/local --once"
 ```
 
 **What works headless:**
@@ -151,12 +143,27 @@ docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2
 
 ## Key Topics
 
-- `/ground_truth/cones` - Ground truth cone positions from EUFS simulator
-- `/zed/left/image_rect_color` - Camera feed (640x480)
-- `/zed/depth/image_raw` - Depth image for 3D positioning
-- `/yolo_annotated_image` - Camera image with bounding boxes drawn
-- `/cone_cloud/local` - Pointcloud of transformed cone detection global coordinates 
-- `/odometry/slam` - Pose estimate from ORB-SLAM3 stereo node
+### Perception inputs (from EUFS sim / real car)
+- `/zed/left/image_rect_color` — left camera feed (640×480)
+- `/zed/right/image_rect_color` — right camera feed (stereo, for SLAM)
+- `/zed/depth/image_raw` — depth image for 3-D cone positioning
+- `/zed/left/camera_info` — camera intrinsics (consumed automatically)
+- `/imu/data` — IMU at ~70 Hz (for stereo-inertial SLAM)
+- `/ground_truth/cones` — EUFS ground truth (visualisation only)
+
+### Primary perception outputs
+- `/cone_map/car_frame` — **PointCloud2 in `base_link`** — cone positions relative to the car; primary input for path planner and future landmark SLAM observations
+- `/cone_map/local` — same data as String CSV `x,y,z,color,confidence` in `base_link`
+- `/cone_map/orange` — PointCloud2 in `base_link` — start/finish line cones only
+- `/car_pose` — `geometry_msgs/PoseStamped` in `odom` frame — republished from SLAM for path planner
+- `/odometry/slam` — `nav_msgs/Odometry` — raw SLAM odometry
+
+### Secondary / visualisation
+- `/cone_map/global` — String CSV in `odom` frame — accumulated global map
+- `/cone_map/markers` — MarkerArray for RViz
+- `/track/centerline` — `nav_msgs/Path` for RViz
+- `/yolo_annotated_image` — camera feed with bounding boxes
+- `/mapping/diagnostics` — DiagnosticArray health monitor
 
 ## Troubleshooting
 
@@ -181,13 +188,13 @@ docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2
 
 ```bash
 # See YOLO detections (should show cone positions)
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /detected_cones --once"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic echo /cone_map/car_frame --once"
 
 # Check YOLO is running
 docker exec racing_perception ps aux | grep YOLO_cone_detector
 
 # Verify topics
-docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic list | grep -E '(yolo|zed|cones)'"
+docker exec racing_perception bash -c "source /opt/ros/humble/setup.bash && ros2 topic list | grep -E '(yolo|zed|cone|slam)'"
 ```
 
 ## Rebuilding After Code Changes
@@ -214,11 +221,11 @@ docker compose down
 docker compose down --rmi all
 
 ```
-### Launching the stereo pipeline
+### Launching the full perception stack (preferred)
 
 ```bash
-# Inside the perception container (after docker compose up)
-docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 launch slam_example slam_example.launch.py"
+# Starts SLAM + YOLO detector + cone mapper in one command
+docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 launch slam_example perception_full.launch.py"
 ```
 
 - Subscribes to `/zed/left/right/image_rect_color`
@@ -257,10 +264,10 @@ Quick commands to inspect cone publishing and SLAM (run inside the perception co
 docker exec -it racing_perception bash -c "source /entrypoint.sh && bash"
 
 # Echo the latest detected cones once
-docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic echo /detected_cones --once"
+docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic echo /cone_map/car_frame --once"
 
 # See publish rates for key topics
-docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic hz /detected_cones /cone_cloud/local /odometry/slam"
+docker exec racing_perception bash -c "source /entrypoint.sh && ros2 topic hz /cone_map/car_frame /cone_cloud/local /odometry/slam"
 
 # View the YOLO annotated camera feed
 docker exec -it racing_perception bash -c "source /entrypoint.sh && ros2 run rqt_image_view rqt_image_view /yolo_annotated_image"
