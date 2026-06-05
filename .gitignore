@@ -84,20 +84,6 @@ Makefile
 
 # IDE / Editor Files
 .vscode/
-<<<<<<< HEAD
-Control/logs/
-
-# Python
-venv/
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-.eggs/
-=======
 .vs/
 *.swp
 *.swo
@@ -109,7 +95,6 @@ dist/
 # Logs
 *.log
 logs/
-Control/logs/
 *.log.*
 
 # Docker
@@ -195,4 +180,3 @@ pip-delete-this-directory.txt
 scratch/
 temp/
 tmp/
->>>>>>> 48dfd06f2e6379c7c97c243e54c73aa751b49c2e
