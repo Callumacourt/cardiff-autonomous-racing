@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/Control/ros_can/FS-AI-API" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Path_Planning/tum_optimizer" vcs="Git" />
   </component>
 </project>
