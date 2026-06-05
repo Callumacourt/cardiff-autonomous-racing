@@ -3,3 +3,14 @@ install/
 log/
 .vscode/
 Control/logs/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+.eggs/

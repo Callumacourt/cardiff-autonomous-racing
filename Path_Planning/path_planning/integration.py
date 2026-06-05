@@ -9,8 +9,6 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped as PathPose
-import numpy as np
 from typing import List, Tuple
 import message_filters
 
@@ -27,8 +25,8 @@ class PathPlannerNode(Node):
         self.last_goal_idx = 0
         
         # Subscribe to car pose and sync with cone detections
-        pose_sub = message_filters.Subscriber(PoseStamped, '/car_pose')
-        cones_sub = message_filters.Subscriber(String, '/detected_cones')
+        pose_sub = message_filters.Subscriber(self, PoseStamped, '/car_pose')
+        cones_sub = message_filters.Subscriber(self, String, '/detected_cones')
         
         ts = message_filters.TimeSynchronizer([pose_sub, cones_sub], queue_size=10)
         ts.registerCallback(self.synchronized_callback)
@@ -49,22 +47,6 @@ class PathPlannerNode(Node):
         """Handle synchronized pose and cone detection messages"""
         self.pose_callback(pose_msg)
         self.yolo_cones_callback(cones_msg)
-        
-        # Subscribe to YOLO cone detections
-        self.create_subscription(String, '/detected_cones', self.yolo_cones_callback, 10)
-        
-        # Publisher for the planned path
-        self.path_pub = self.create_publisher(Path, '/planned_path', 10)
-        
-        # Timer for main planning loop (5 Hz)
-        self.timer = self.create_timer(0.2, self.main_loop)
-        
-        # Statistics
-        self.detection_count = 0
-        self.last_detection_time = self.get_clock().now()
-        
-        self.get_logger().info('Path Planner Node initialized')
-        self.get_logger().info('Subscribed to /detected_cones from YOLO')
     
     def yolo_cones_callback(self, msg):
         """
@@ -87,28 +69,25 @@ class PathPlannerNode(Node):
             return
         
         lines = msg.data.strip().split('\n')
-        valid_detections = 0
-        
+
         for line in lines:
             parts = line.strip().split(',')
             if len(parts) >= 4:
                 try:
-                    x, y, z, label = map(float, parts[:4])
+                    x, y, _, label = map(float, parts[:4])
                     label = int(label)
-                    
+
                     # Filter out invalid and unknown cones
                     if label < 0 or label == 3:
                         continue
-                    
+
                     # Categorize by label
                     if label == 0:  # Blue cone (left boundary)
                         self.left_cones.append((x, y))
-                        valid_detections += 1
-                        
+
                     elif label == 1:  # Yellow cone (right boundary)
                         self.right_cones.append((x, y))
-                        valid_detections += 1
-                        
+
                     elif label == 2:  # Orange cone (special marker)
                         self.orange_cones.append((x, y))
                         # Decide how to handle orange cones based on your track rules
@@ -116,7 +95,6 @@ class PathPlannerNode(Node):
                         # Option B: Ignore them
                         # Option C: Special handling for start/finish line
                         # For now, storing separately for flexibility
-                        valid_detections += 1
                     
                 except (ValueError, IndexError) as e:
                     self.get_logger().warning(f'Failed to parse cone line: "{line}" - {e}')
@@ -210,7 +188,7 @@ class PathPlannerNode(Node):
         path_msg.header.frame_id = 'map'  # Adjust frame_id as needed
         
         for point in self.centerline:
-            pose = PathPose()
+            pose = PoseStamped()
             pose.header = path_msg.header
             pose.pose.position.x = point[0]
             pose.pose.position.y = point[1]

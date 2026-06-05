@@ -1,16 +1,1 @@
-@"
-<?xml version="1.0"?>
-<package format="3">
-  <name>path_planning</name>
-  <version>0.0.0</version>
-  <description>RRT* Path Planning for Autonomous Racing</description>
-  <maintainer email="callumacourtt@gmail.com">callumacourt</maintainer>
-  <license>MIT</license>
-  <depend>rclpy</depend>
-  <depend>std_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>geometry_msgs</depend>
-  <depend>message_filters</depend>
-  <export><build_type>ament_python</build_type></export>
-</package>
-"@ | Out-File -FilePath "Path Planning/package.xml" -Encoding UTF8 -NoNewline
+<?xml version="1.0"?> <package format="3"> <name>path_planning</name> <version>0.0.0</version> <description>Path Planning for Autonomous Racing</description> <maintainer email="callumacourtt@gmail.com">callumacourt</maintainer> <license>MIT</license> <depend>rclpy</depend> <depend>std_msgs</depend> <depend>nav_msgs</depend> <depend>geometry_msgs</depend> <depend>message_filters</depend> <export> <build_type>ament_python</build_type> </export> </package>
