@@ -29,7 +29,7 @@ class ConeMapperNode(Node):
     
     Subscribes to:
         /cone_cloud/local: PointCloud2 detections from YOLO
-        /odometry/slam: Vehicle pose from ORB-SLAM3
+        /odometry/slam: Vehicle pose from SLAM
     
     Publishes:
         /cone_map/local: Local cone buffer (String)
