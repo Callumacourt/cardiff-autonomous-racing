@@ -333,12 +333,12 @@ class TestUpdate:
         # The drifted car thinks it's at (0.5,0), so if we observe the
         # landmark as-if from (0,0), the EKF should reduce the residual.
         z_obs = np.array([5.0, 0.0])
-        z_before, _ = ekf._expected_obs_and_H(0)
+        z_before = ekf._obs_blocks(0)[0]
         resid_before = np.linalg.norm(z_obs - z_before)
 
         ekf.update(np.array([5.0, 0.0]), landmark_idx=0)
 
-        z_after, _ = ekf._expected_obs_and_H(0)
+        z_after = ekf._obs_blocks(0)[0]
         resid_after = np.linalg.norm(z_obs - z_after)
 
         assert resid_after < resid_before
