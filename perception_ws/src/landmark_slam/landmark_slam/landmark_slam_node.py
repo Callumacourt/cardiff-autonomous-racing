@@ -4,10 +4,14 @@ Landmark SLAM ROS2 node — drop-in replacement for ORB-SLAM3.
 Publishes  /odometry/slam  (nav_msgs/Odometry) by fusing:
   • /imu/data              IMU yaw rate → prediction step (required)
   • /cone_cloud/local      YOLO cone detections in camera frame → EKF update
-  • /ros_can/twist         forward velocity from race-car CAN (optional;
-                           if absent the node falls back to IMU-only dead-
-                           reckoning which will drift in position but remain
-                           corrected by landmark observations)
+  • /ros_can/twist         forward velocity from race-car CAN (real car;
+                           published by the ros_can node, NOT present in sim)
+  • /gps_controller/vel    GPS velocity vector (EUFS sim; used whenever
+                           /ros_can/twist is not being received)
+
+A forward-velocity source is REQUIRED for usable output: without one the
+EKF prediction step cannot translate the pose and position error grows
+with every metre driven.  The node warns if neither source is alive.
 
 Topic /odometry/slam is published:
   • at every IMU sample   (high-rate dead-reckoning pose)
@@ -25,6 +29,7 @@ camera_x_offset     float  0.0   Camera forward offset from car ref (m).
 camera_y_offset     float  0.0   Camera lateral offset from car ref (m).
 max_cone_range      float  15.0  Discard detections beyond this depth (m).
 min_cone_range      float  0.5   Discard detections closer than this (m).
+max_obs_age         float  0.4   Discard cone clouds older than this vs IMU (s).
 frame_id            str   "map"  Frame of the published odometry.
 child_frame_id      str   "base_link"
 
@@ -44,9 +49,9 @@ from typing import Optional
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import TwistWithCovarianceStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped, Vector3Stamped
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Imu
+from sensor_msgs.msg import Imu, PointCloud2
 from sensor_msgs_py import point_cloud2
 
 from .ekf import EKFSlam, wrap_angle, yaw_to_quaternion
@@ -72,6 +77,7 @@ class LandmarkSLAMNode(Node):
         self.declare_parameter('camera_y_offset',   0.0)
         self.declare_parameter('max_cone_range',    15.0)
         self.declare_parameter('min_cone_range',    0.5)
+        self.declare_parameter('max_obs_age',       0.4)
         self.declare_parameter('frame_id',          'map')
         self.declare_parameter('child_frame_id',    'base_link')
 
@@ -80,6 +86,7 @@ class LandmarkSLAMNode(Node):
         proc_yaw   = self._p_float('process_noise_yaw')
         self._max_range    = self._p_float('max_cone_range')
         self._min_range    = self._p_float('min_cone_range')
+        self._max_obs_age  = self._p_float('max_obs_age')
         self._frame_id     = self._p_str('frame_id')
         self._child_frame  = self._p_str('child_frame_id')
 
@@ -97,8 +104,12 @@ class LandmarkSLAMNode(Node):
         )
 
         # ── Node state ────────────────────────────────────────────────────
-        self._last_imu_stamp: Optional[float] = None   # seconds
-        self._forward_velocity: float = 0.0            # m/s from /ros_can/twist
+        self._last_imu_stamp: Optional[float] = None    # seconds (msg stamp)
+        self._last_stamp_msg = None                     # builtin Time of same
+        self._last_imu_yaw: Optional[float] = None      # rad, from orientation
+        self._forward_velocity: float = 0.0             # m/s, best source below
+        self._last_can_stamp: Optional[float] = None    # /ros_can/twist msg stamp
+        self._velocity_received: bool = False
 
         # ── Publisher ─────────────────────────────────────────────────────
         self._odom_pub = self.create_publisher(Odometry, '/odometry/slam', 10)
@@ -107,21 +118,23 @@ class LandmarkSLAMNode(Node):
         # IMU — runs the prediction step at full IMU rate
         self.create_subscription(Imu, '/imu/data', self._imu_cb, 200)
 
-        # Cone detections — runs the EKF update step
+        # Cone detections — runs the EKF update step.  Depth 1: only the
+        # newest cloud matters; a backlog of stale clouds would drag the
+        # pose towards where the car used to be.
         self.create_subscription(
-            __import__('sensor_msgs').msg.PointCloud2,
-            '/cone_cloud/local',
-            self._cone_cb,
-            10,
-        )
+            PointCloud2, '/cone_cloud/local', self._cone_cb, 1)
 
-        # Forward velocity from CAN bus (available in sim from race_car node)
+        # Forward velocity, real car: published by ros_can from the VCU
         self.create_subscription(
-            TwistWithCovarianceStamped,
-            '/ros_can/twist',
-            self._twist_cb,
-            50,
-        )
+            TwistWithCovarianceStamped, '/ros_can/twist', self._twist_cb, 50)
+
+        # Forward velocity, EUFS sim: GPS velocity vector (world frame).
+        # Only used while /ros_can/twist is silent.
+        self.create_subscription(
+            Vector3Stamped, '/gps_controller/vel', self._gps_vel_cb, 50)
+
+        # Warn once if no velocity source comes up
+        self._vel_check_timer = self.create_timer(5.0, self._velocity_check)
 
         self.get_logger().info('landmark_slam node started')
         self.get_logger().info(
@@ -150,11 +163,24 @@ class LandmarkSLAMNode(Node):
 
     # ── IMU callback — prediction ─────────────────────────────────────────
 
+    @staticmethod
+    def _yaw_from_imu(msg: Imu) -> Optional[float]:
+        """Yaw from the IMU orientation quaternion, or None if unfilled."""
+        q = msg.orientation
+        if (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w) < 1e-6:
+            return None   # orientation not provided (all-zero quaternion)
+        siny = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny, cosy)
+
     def _imu_cb(self, msg: Imu) -> None:
         now = self._stamp_to_sec(msg.header.stamp)
+        yaw = self._yaw_from_imu(msg)
 
         if self._last_imu_stamp is None:
             self._last_imu_stamp = now
+            self._last_stamp_msg = msg.header.stamp
+            self._last_imu_yaw = yaw
             return
 
         dt = now - self._last_imu_stamp
@@ -162,17 +188,47 @@ class LandmarkSLAMNode(Node):
 
         if dt <= 0.0 or dt > 0.5:
             # Bad dt: skip but keep last stamp to resync
+            self._last_imu_yaw = yaw
             return
 
-        omega = float(msg.angular_velocity.z)   # yaw rate (rad/s)
+        # Heading rate: prefer the delta of the IMU's own orientation
+        # estimate — unlike ω·dt it stays correct even when samples are
+        # dropped or processed late.  Fall back to the raw yaw rate.
+        if yaw is not None and self._last_imu_yaw is not None:
+            omega = wrap_angle(yaw - self._last_imu_yaw) / dt
+        else:
+            omega = float(msg.angular_velocity.z)
+        self._last_imu_yaw = yaw
+
         self._ekf.predict(self._forward_velocity, omega, dt)
+        self._last_stamp_msg = msg.header.stamp
         self._publish_odom(msg.header.stamp)
 
-    # ── /ros_can/twist callback — forward velocity ────────────────────────
+    # ── Velocity callbacks ────────────────────────────────────────────────
 
     def _twist_cb(self, msg: TwistWithCovarianceStamped) -> None:
-        # linear.x is forward velocity in body frame (m/s) from EUFS race_car
+        # linear.x is forward velocity in body frame (m/s) from the VCU
         self._forward_velocity = float(msg.twist.twist.linear.x)
+        self._last_can_stamp = self._stamp_to_sec(msg.header.stamp)
+        self._velocity_received = True
+
+    def _gps_vel_cb(self, msg: Vector3Stamped) -> None:
+        # CAN twist has priority: ignore GPS if CAN arrived within the last 1 s
+        if (self._last_can_stamp is not None and self._last_imu_stamp is not None
+                and self._last_imu_stamp - self._last_can_stamp < 1.0):
+            return
+        # World-frame velocity vector → speed over ground.  The car only
+        # drives forward, so the unsigned magnitude is the forward velocity.
+        self._forward_velocity = math.hypot(float(msg.vector.x), float(msg.vector.y))
+        self._velocity_received = True
+
+    def _velocity_check(self) -> None:
+        if self._velocity_received:
+            self._vel_check_timer.cancel()
+            return
+        self.get_logger().warning(
+            'No velocity source yet (/ros_can/twist or /gps_controller/vel) — '
+            'position will NOT track until one is publishing')
 
     # ── Cone callback — EKF update ────────────────────────────────────────
 
@@ -182,12 +238,25 @@ class LandmarkSLAMNode(Node):
             # No IMU data yet — cannot meaningfully update
             return
 
-        available_fields = {f.name for f in msg.fields}
-        label_field = 'label' if 'label' in available_fields else 'confidence'
+        # Drop stale detections: the EKF pose is at IMU time, so applying
+        # an observation taken much earlier corrupts the estimate.
+        obs_age = self._last_imu_stamp - self._stamp_to_sec(msg.header.stamp)
+        if obs_age > self._max_obs_age:
+            self.get_logger().warning(
+                f'Dropping cone cloud {obs_age:.2f}s older than latest IMU '
+                f'(max_obs_age={self._max_obs_age:.2f}s)',
+                throttle_duration_sec=5.0)
+            return
+
+        if 'label' not in {f.name for f in msg.fields}:
+            self.get_logger().warning(
+                "Cone cloud has no 'label' field — dropping message",
+                throttle_duration_sec=5.0)
+            return
 
         points = list(point_cloud2.read_points(
             msg,
-            field_names=('x', 'y', 'z', label_field),
+            field_names=('x', 'y', 'z', 'label'),
             skip_nans=True,
         ))
 
@@ -228,7 +297,10 @@ class LandmarkSLAMNode(Node):
                 n_new += 1
 
         if points:
-            self._publish_odom(msg.header.stamp)
+            # Publish with the newest IMU stamp — the corrected pose is an
+            # estimate at IMU time; using the older image stamp would make
+            # /odometry/slam stamps jump backwards.
+            self._publish_odom(self._last_stamp_msg)
 
         if n_new > 0:
             self.get_logger().debug(

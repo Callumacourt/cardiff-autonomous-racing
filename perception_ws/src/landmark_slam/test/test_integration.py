@@ -298,7 +298,7 @@ class TestCameraToEKFConsistency:
         obs = np.array([4.0, 1.5])
         ekf.add_landmark(obs, color=_BLUE)
 
-        z_exp, _ = ekf._expected_obs_and_H(0)
+        z_exp = ekf._obs_blocks(0)[0]
         np.testing.assert_allclose(z_exp, obs, atol=1e-9,
                                    err_msg='Expected obs after add_landmark '
                                            'does not match original observation')

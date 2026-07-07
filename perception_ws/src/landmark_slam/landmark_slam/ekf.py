@@ -187,37 +187,46 @@ class EKFSlam:
             [0.0, 0.0,  1.0],
         ])
 
-        # Full Jacobian — vehicle block + identity for landmarks
-        n = self.state_dim
-        F = np.eye(n)
-        F[:3, :3] = Fx
-
-        # Process noise (scaled by dt, vehicle block only)
-        Q_full = np.zeros((n, n))
-        Q_full[:3, :3] = self._Q_rate * dt
-
-        # Covariance prediction: P = F·P·Fᵀ + Q
-        self.P = F @ self.P @ F.T + Q_full
+        # Covariance prediction: P = F·P·Fᵀ + Q.
+        # F is identity except the top-left pose block, so only the pose
+        # rows/columns of P change — O(n) instead of building the full
+        # n×n Jacobian (which is O(n³) and stalls the node once the
+        # landmark count grows).
+        self.P[:3, :3] = Fx @ self.P[:3, :3] @ Fx.T + self._Q_rate * dt
+        if self.n_landmarks > 0:
+            self.P[:3, 3:] = Fx @ self.P[:3, 3:]
+            self.P[3:, :3] = self.P[:3, 3:].T
 
     # -----------------------------------------------------------------------
     # Internal: expected observation + Jacobian
     # -----------------------------------------------------------------------
 
-    def _expected_obs_and_H(
+    def _obs_blocks(
         self, landmark_idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Compute expected observation of landmark *i* in robot body frame
-        and the full Jacobian H = ∂h/∂x (2 × state_dim).
+        Expected observation of landmark *i* in robot body frame plus the
+        non-zero blocks of the Jacobian H = ∂h/∂x and the innovation
+        covariance S.
+
+        H is zero everywhere except the pose block A = ∂h/∂[x_r, y_r, θ]
+        (2×3) and the landmark block B = ∂h/∂[lx_i, ly_i] (2×2), so S and
+        the Kalman gain can be computed from covariance sub-blocks without
+        ever building the full 2×n matrix (which made every cone update
+        O(n³) and stalled the node as the landmark count grew).
 
         Observation model:
             obs_x =  cos(θ)·dx + sin(θ)·dy
             obs_y = −sin(θ)·dx + cos(θ)·dy
         where dx = lx_i − x_r, dy = ly_i − y_r.
+
+        Returns
+        -------
+        (z_exp, A, B, S)
         """
         x_r, y_r, theta = self.state[0], self.state[1], self.state[2]
-        lx = self.state[3 + 2 * landmark_idx]
-        ly = self.state[3 + 2 * landmark_idx + 1]
+        li = 3 + 2 * landmark_idx
+        lx, ly = self.state[li], self.state[li + 1]
 
         dx = lx - x_r
         dy = ly - y_r
@@ -226,23 +235,20 @@ class EKFSlam:
 
         z_exp = np.array([c * dx + s * dy, -s * dx + c * dy])
 
-        n = self.state_dim
-        H = np.zeros((2, n))
+        A = np.array([
+            [-c, -s, -s * dx + c * dy],
+            [ s, -c, -c * dx - s * dy],
+        ])
+        B = np.array([[c, s], [-s, c]])
 
-        # ∂h/∂[x_r, y_r]
-        H[0, 0] = -c;   H[0, 1] = -s
-        H[1, 0] =  s;   H[1, 1] = -c
+        P_vv = self.P[:3, :3]
+        P_vl = self.P[:3, li:li + 2]
+        P_ll = self.P[li:li + 2, li:li + 2]
 
-        # ∂h/∂θ
-        H[0, 2] = -s * dx + c * dy
-        H[1, 2] = -c * dx - s * dy
+        S = (A @ P_vv @ A.T + A @ P_vl @ B.T
+             + (A @ P_vl @ B.T).T + B @ P_ll @ B.T + self.R)
 
-        # ∂h/∂[lx_i, ly_i]
-        col = 3 + 2 * landmark_idx
-        H[0, col]     =  c;   H[0, col + 1] =  s
-        H[1, col]     = -s;   H[1, col + 1] =  c
-
-        return z_exp, H
+        return z_exp, A, B, S
 
     # -----------------------------------------------------------------------
     # Data association
@@ -276,9 +282,8 @@ class EKFSlam:
             if color is not None and self.landmark_colors[i] != color:
                 continue
 
-            z_exp, H = self._expected_obs_and_H(i)
+            z_exp, _, _, S = self._obs_blocks(i)
             innov = obs_robot - z_exp
-            S = H @ self.P @ H.T + self.R
 
             try:
                 d = float(innov @ np.linalg.solve(S, innov))
@@ -306,19 +311,21 @@ class EKFSlam:
         landmark_idx : int
             Index of the associated landmark in the state vector.
         """
-        z_exp, H = self._expected_obs_and_H(landmark_idx)
+        z_exp, A, B, S = self._obs_blocks(landmark_idx)
         innov = obs_robot - z_exp
 
-        S = H @ self.P @ H.T + self.R
-        K = self.P @ H.T @ np.linalg.inv(S)
+        # P·Hᵀ from the two non-zero blocks of H — O(n) instead of O(n²)
+        li = 3 + 2 * landmark_idx
+        PHt = self.P[:, :3] @ A.T + self.P[:, li:li + 2] @ B.T   # (n × 2)
+        K = PHt @ np.linalg.inv(S)                               # (n × 2)
 
         self.state = self.state + K @ innov
         self.state[2] = wrap_angle(self.state[2])
 
-        # Joseph form for numerical stability: P = (I−KH)P(I−KH)ᵀ + KRKᵀ
-        n = self.state_dim
-        I_KH = np.eye(n) - K @ H
-        self.P = I_KH @ self.P @ I_KH.T + K @ self.R @ K.T
+        # Joseph form expanded:  (I−KH)P(I−KH)ᵀ + KRKᵀ
+        #   = P − K·(HP) − (HP)ᵀ·Kᵀ + K·S·Kᵀ        (HP = PHtᵀ, P symmetric)
+        # Every term is a rank-2 product → O(n²), no dense n×n matmuls.
+        self.P = self.P - K @ PHt.T - PHt @ K.T + K @ S @ K.T
         # Enforce symmetry
         self.P = 0.5 * (self.P + self.P.T)
 

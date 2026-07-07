@@ -5,6 +5,10 @@ Landmark SLAM validation script.
 Subscribes to /odometry/slam and /ground_truth/odom inside EUFS sim and
 prints live position error + heading error statistics.
 
+Both trajectories are expressed relative to their own FIRST pose (SE(2)
+start alignment) before comparison, because SLAM always starts at the
+origin while the simulator ground truth starts at the spawn pose.
+
 Usage (inside the perception container or any container on racing_network):
     source /opt/ros/humble/setup.bash
     source /workspace/perception_ws/install/setup.bash
@@ -46,6 +50,8 @@ class SLAMValidator(Node):
 
         self._slam_pose: Optional[Tuple[float, float, float]] = None
         self._gt_pose:   Optional[Tuple[float, float, float]] = None
+        self._slam_origin: Optional[Tuple[float, float, float]] = None
+        self._gt_origin:   Optional[Tuple[float, float, float]] = None
         self._slam_stamp: Optional[float] = None
         self._gt_stamp:   Optional[float] = None
 
@@ -68,14 +74,28 @@ class SLAMValidator(Node):
         ))
         print('-' * 100)
 
+    @staticmethod
+    def _relative_to(origin, pose):
+        """Express *pose* (x, y, yaw) in the frame of *origin* (SE(2))."""
+        ox, oy, oth = origin
+        dx, dy = pose[0] - ox, pose[1] - oy
+        c, s = math.cos(-oth), math.sin(-oth)
+        return (c * dx - s * dy, s * dx + c * dy, _wrap_angle(pose[2] - oth))
+
     def _slam_cb(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
-        self._slam_pose = (p.x, p.y, _yaw_from_quat(msg.pose.pose.orientation))
+        pose = (p.x, p.y, _yaw_from_quat(msg.pose.pose.orientation))
+        if self._slam_origin is None:
+            self._slam_origin = pose
+        self._slam_pose = self._relative_to(self._slam_origin, pose)
         self._slam_stamp = float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) * 1e-9
 
     def _gt_cb(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
-        self._gt_pose = (p.x, p.y, _yaw_from_quat(msg.pose.pose.orientation))
+        pose = (p.x, p.y, _yaw_from_quat(msg.pose.pose.orientation))
+        if self._gt_origin is None:
+            self._gt_origin = pose
+        self._gt_pose = self._relative_to(self._gt_origin, pose)
         self._gt_stamp = float(msg.header.stamp.sec) + float(msg.header.stamp.nanosec) * 1e-9
 
     def _report(self) -> None:
