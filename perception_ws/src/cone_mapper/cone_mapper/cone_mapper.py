@@ -117,24 +117,27 @@ class ConeMapperNode(Node):
         """
         frame_id = msg.header.frame_id
         has_pose = (self.latest_pose is not None)
-        
-        self.get_logger().info(f"Received PointCloud2: frame_id={frame_id}, has_pose={has_pose}")
-        
+
         # If we don't have SLAM pose, only accept clouds in map/odom frame
         if not has_pose and frame_id not in ('map', 'odom', 'world'):
-            self.get_logger().warning(f"Rejecting cloud: no SLAM pose and frame_id={frame_id}")
+            self.get_logger().warning(
+                f"Rejecting cloud: no SLAM pose and frame_id={frame_id}",
+                throttle_duration_sec=5.0)
             return
         
         start_time = time.time()
         
         try:
-            # Read points from PointCloud2
-            available_fields = {f.name for f in msg.fields}
-            label_field = 'label' if 'label' in available_fields else 'confidence'
-            
+            # Read points from PointCloud2 — cone_detector publishes x, y, z, label
+            if 'label' not in {f.name for f in msg.fields}:
+                self.get_logger().warning(
+                    "Cone cloud has no 'label' field — dropping message",
+                    throttle_duration_sec=5.0)
+                return
+
             points_iter = point_cloud2.read_points(
                 msg,
-                field_names=('x', 'y', 'z', label_field),
+                field_names=('x', 'y', 'z', 'label'),
                 skip_nans=True
             )
             
@@ -182,23 +185,19 @@ class ConeMapperNode(Node):
                 valid_detections += 1
             
             if valid_detections > 0:
-                self.get_logger().info(f'Processed {valid_detections} valid cone detections from frame {frame_id}')
-            
+                self.get_logger().debug(
+                    f'Processed {valid_detections} valid cone detections from frame {frame_id}')
+
             # Update buffer and promote high-confidence cones to global map
             self.local_buffer.update_frame()
-            promoted_count = 0
-            
+
             for cone in self.local_buffer.get_high_confidence_cones():
                 if self.global_map.try_add_cone(cone):
                     self.stats['global_additions'] += 1
-                    promoted_count += 1
-                    self.get_logger().info(
+                    self.get_logger().debug(
                         f'Added cone {cone["id"]} to global map at '
                         f'({cone["x"]:.1f}, {cone["y"]:.1f}) with confidence {cone["confidence"]:.2f}'
                     )
-            
-            if promoted_count > 0:
-                self.get_logger().info(f'Promoted {promoted_count} cones to global map')
             
             # Track processing time
             self.stats['processing_times'].append(time.time() - start_time)
@@ -246,12 +245,12 @@ class ConeMapperNode(Node):
         msg = String()
         msg.data = '\n'.join(output_lines)
         self.global_map_pub.publish(msg)
-        
-        # Log stats periodically
+
         stats = self.global_map.get_stats()
         self.get_logger().info(
             f'Global map: {stats["total_cones"]} cones '
-            f'(B:{stats["blue_cones"]} Y:{stats["yellow_cones"]} O:{stats["orange_cones"]})'
+            f'(B:{stats["blue_cones"]} Y:{stats["yellow_cones"]} O:{stats["orange_cones"]})',
+            throttle_duration_sec=10.0
         )
     
     def _publish_visualisation(self):
@@ -323,12 +322,6 @@ class ConeMapperNode(Node):
         )
         
         self.centerline_pub.publish(centerline_path)
-        
-        # Log for debugging
-        if len(centerline_path.poses) > 0:
-            self.get_logger().info(
-                f"Published centerline with {len(centerline_path.poses)} points"
-            )
     
     def _publish_diagnostics(self):
         """Publish system diagnostics."""
