@@ -1,12 +1,11 @@
 """Data structures for cone map management."""
 import numpy as np
-from scipy.spatial import KDTree
 from typing import List, Dict, Optional
 import time
 import math
 import json
 
-from .constants import ConeColor 
+from .constants import ConeColor
 
 class PersistentGlobalMap:
     """Persistent global cone map with confidence filtering."""
@@ -203,35 +202,23 @@ class LocalConeBuffer:
         """Get cones above confidence threshold."""
         return [cone for cone in self.cones if cone['confidence'] > threshold]
     
-    def _find_matching_cone(self, x: float, y: float, color: int, 
+    def _find_matching_cone(self, x: float, y: float, color: int,
                            radius: float = 2.0) -> Optional[int]:
         """
-        Find matching cone using KD-tree spatial search.
-        
-        Args:
-            x, y: Position to search near
-            color: Cone color to match
-            radius: Search radius in meters
-            
-        Returns:
-            Index of matching cone or None
+        Find the nearest same-colour cone within *radius* metres.
+
+        Returns the index into self.cones, or None.  A plain linear scan:
+        the buffer holds at most max_size (200) cones.
         """
-        # Only consider cones of same color
-        candidates = [(i, cone) for i, cone in enumerate(self.cones) 
-                     if cone['color'] == color]
-        
-        if not candidates:
-            return None
-        
-        # Build KD-tree for efficient spatial search
-        positions = np.array([[cone['x'], cone['y']] for _, cone in candidates])
-        tree = KDTree(positions)
-        
-        # Find nearest neighbor
-        dist, local_idx = tree.query([x, y])
-        
-        if dist < radius:
-            global_idx, _ = candidates[local_idx]
-            return global_idx
-        
-        return None
+        best_idx = None
+        best_dist_sq = radius * radius
+
+        for i, cone in enumerate(self.cones):
+            if cone['color'] != color:
+                continue
+            d_sq = (cone['x'] - x) ** 2 + (cone['y'] - y) ** 2
+            if d_sq < best_dist_sq:
+                best_dist_sq = d_sq
+                best_idx = i
+
+        return best_idx
