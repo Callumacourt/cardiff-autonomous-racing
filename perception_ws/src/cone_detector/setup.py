@@ -1,30 +1,25 @@
 from setuptools import find_packages, setup
-import os
-from glob import glob
 
 package_name = 'cone_detector'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/msg', ['msg/DetectedCone3D.msg']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ritvik',
-    maintainer_email='ritvik@todo.todo',
-    description='Cone detector with 3D message publishing',
-    license='TODO: License declaration',
-    tests_require=['pytest'],
+    maintainer='Cardiff Autonomous Racing',
+    maintainer_email='cardiff@racing.ac.uk',
+    description='YOLOv8 cone detection with depth-based 3D localisation',
+    license='MIT',
     entry_points={
         'console_scripts': [
             'YOLO_cone_detector = cone_detector.YOLO_cone_detector:main',
         ],
     },
 )
-

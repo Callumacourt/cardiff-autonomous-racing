@@ -18,6 +18,21 @@ Yes, a **global cone map is being created** and published on `/cone_map/global`.
 
 ## 2) What SLAM Actually Gives You
 
+### What SLAM needs as input
+
+| Input topic | Type | Where it comes from | Required? |
+|---|---|---|---|
+| `/imu/data` | `sensor_msgs/Imu` | sim or real IMU | yes — yaw rate for prediction |
+| `/ros_can/twist` | `TwistWithCovarianceStamped` | **real car only** (ros_can node) | one velocity source required |
+| `/gps_controller/vel` | `Vector3Stamped` | **EUFS sim** GPS plugin | one velocity source required |
+| `/cone_cloud/local` | `PointCloud2` | `cone_detector` (YOLO) | yes — position corrections |
+
+`landmark_slam` automatically prefers `/ros_can/twist` when it is being
+received and falls back to `/gps_controller/vel` otherwise, so the same node
+works in sim and on the car with no remapping.  If neither velocity source is
+alive the node logs a warning and position will NOT track — this was the cause
+of the original "high SLAM error vs ground truth" issue.
+
 From `/odometry/slam`:
 
 - `msg.pose.pose.position.x`
@@ -49,6 +64,22 @@ Example line:
 ---
 
 ## 4) Fastest Way to Reach the Topics
+
+### One consistent command (recommended)
+
+From repo root:
+
+```bash
+./scripts/start_sim_and_log_slam.sh 20
+```
+
+What it does:
+- starts `base`, `perception`, `eufs_sim`
+- restarts `cone_detector`, `cone_mapper`, `landmark_slam`
+- runs quick topic health checks
+- runs SLAM validator for 20s and writes a log to `logs/slam_validation_*.log`
+
+---
 
 ### Start stack
 

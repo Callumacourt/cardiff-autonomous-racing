@@ -6,6 +6,19 @@ YOLOv8 cone detection + EKF landmark SLAM running on EUFS Formula Student simula
 Replaces the old ORB-SLAM3 node.  Drop-in: still publishes `/odometry/slam`.
 Docker build time is now **~5 min** (was ~40 min).
 
+**SLAM inputs** — the node fuses three things:
+
+| Topic | Purpose |
+|---|---|
+| `/imu/data` | yaw rate → EKF prediction (required) |
+| `/ros_can/twist` (real car) or `/gps_controller/vel` (sim) | forward velocity → EKF prediction (required) |
+| `/cone_cloud/local` | YOLO cone detections → EKF correction |
+
+The node listens to both velocity topics and automatically prefers the CAN
+twist when it is alive, so the same command works in sim and on the car.
+Without a velocity source the pose cannot translate and error grows with
+every metre driven (it logs a warning if neither topic is publishing).
+
 ---
 
 ## Run with EUFS sim (Linux)
@@ -72,6 +85,9 @@ docker exec -it racing_perception bash -c "
 
 This prints live position error vs `/ground_truth/odom` and a final RMSE
 summary when you press Ctrl-C.  Target: **position RMSE < 0.5 m**.
+Both trajectories are expressed relative to their first pose before
+comparison (SLAM starts at the origin; sim ground truth starts at the
+spawn pose).
 
 ---
 
@@ -91,7 +107,7 @@ pip install pytest numpy
 pytest test/ -v
 ```
 
-Expected output: all tests **PASSED** (29 tests).
+Expected output: all tests **PASSED** (71 tests).
 
 ---
 
@@ -120,6 +136,9 @@ ros2 run landmark_slam landmark_slam \
 ## Minimal Troubleshooting
 
 - No `/odometry/slam`: check `landmark_slam` is running and `/imu/data` exists.
+- `/odometry/slam` exists but position stays near zero while driving: no
+  velocity source — check `/gps_controller/vel` (sim) or `/ros_can/twist`
+  (real car) is publishing. The node warns about this at startup.
 - No cones: check `/zed/left/image_rect_color`, `/zed/depth/image_raw`, and `best.pt` exists.
 - No map output: check `/cone_cloud/local` first, then `/cone_map/local`.
 
