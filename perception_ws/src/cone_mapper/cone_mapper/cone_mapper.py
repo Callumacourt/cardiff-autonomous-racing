@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Odometry
 from visualization_msgs.msg import MarkerArray
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from sensor_msgs.msg import PointCloud2
@@ -26,16 +26,15 @@ from .visualisation import ConeVisualizer
 class ConeMapperNode(Node):
     """
     ROS2 node for building persistent cone map from detections and SLAM.
-    
+
     Subscribes to:
         /cone_cloud/local: PointCloud2 detections from YOLO
         /odometry/slam: Vehicle pose from SLAM
-    
+
     Publishes:
         /cone_map/local: Local cone buffer (String)
         /cone_map/global: Persistent global map (String)
         /cone_map/markers: RViz visualization (MarkerArray)
-        /track/centerline: Centerline path (Path)
         /mapping/diagnostics: System health (DiagnosticArray)
     """
     
@@ -82,17 +81,15 @@ class ConeMapperNode(Node):
         """Create ROS publishers."""
         self.local_map_pub = self.create_publisher(String, '/cone_map/local', 10)
         self.global_map_pub = self.create_publisher(String, '/cone_map/global', 10)
-        self.centerline_pub = self.create_publisher(Path, '/track/centerline', 10)
         self.markers_pub = self.create_publisher(MarkerArray, '/cone_map/markers', 10)
         self.diagnostics_pub = self.create_publisher(DiagnosticArray, '/mapping/diagnostics', 10)
-    
+
     def _setup_timers(self):
         """Create periodic timers."""
         self.create_timer(0.05, self._publish_local_map)
         self.create_timer(0.5, self._publish_global_map)
         self.create_timer(1.0, self._publish_diagnostics)
-        self.create_timer(0.5, self._publish_centerline)
-        self.create_timer(0.1, self._publish_visualisation)  
+        self.create_timer(0.1, self._publish_visualisation)
     
     def _pose_callback(self, msg: Odometry):
         """
@@ -254,75 +251,23 @@ class ConeMapperNode(Node):
         )
     
     def _publish_visualisation(self):
-        """
-        Publish RViz markers using visualisation module.
-        """
+        """Publish RViz cone markers."""
         local_cones = self.local_buffer.get_all_cones()
         global_cones = self.global_map.get_local_view(
-            self.vehicle_position, 
+            self.vehicle_position,
             radius=20.0
         )
-        
+
         if not local_cones and not global_cones:
-            self.get_logger().debug("No cones to visualize")
             return
-        
-        timestamp = self.get_clock().now()
-        
-        # Create marker array with all cones
+
         marker_array = self.visualizer.create_marker_array(
             local_cones,
             global_cones,
-            timestamp
+            self.get_clock().now()
         )
-        
-        # Add centerline marker
-        left_cones = [c for c in global_cones if c['color'] == ConeColor.BLUE]
-        right_cones = [c for c in global_cones if c['color'] == ConeColor.YELLOW]
-        
-        if left_cones and right_cones:
-            centerline_marker = self.visualizer.create_centerline_marker(
-                left_cones,
-                right_cones,
-                timestamp
-            )
-            marker_array.markers.append(centerline_marker)
-            
-            # Optionally add boundary markers
-            boundary_markers = self.visualizer.create_boundary_markers(
-                left_cones,
-                right_cones,
-                timestamp
-            )
-            marker_array.markers.extend(boundary_markers)
-        
         self.markers_pub.publish(marker_array)
-    
-    def _publish_centerline(self):
-        """
-        Publish centerline as Path message using visualisation module.
-        """
-        global_cones = self.global_map.get_global_map()
-        
-        # Separate left (blue) and right (yellow) cones
-        left_cones = [c for c in global_cones if c['color'] == ConeColor.BLUE]
-        right_cones = [c for c in global_cones if c['color'] == ConeColor.YELLOW]
-        
-        if not left_cones or not right_cones:
-            self.get_logger().debug("Not enough left/right cones for centerline")
-            return
-        
-        timestamp = self.get_clock().now()
-        
-        # Use visualizer to create centerline path
-        centerline_path = self.visualizer.create_centerline_path(
-            left_cones,
-            right_cones,
-            timestamp
-        )
-        
-        self.centerline_pub.publish(centerline_path)
-    
+
     def _publish_diagnostics(self):
         """Publish system diagnostics."""
         diag_array = DiagnosticArray()
