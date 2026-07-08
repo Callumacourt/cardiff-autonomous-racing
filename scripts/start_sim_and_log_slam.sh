@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Consistent runner for EUFS sim + perception + SLAM validation logging.
+# Quick smoke test: start the stack, restart perception nodes, print topic
+# rates, sample SLAM error for a few seconds. Use this after a code change
+# to check nothing is obviously broken.
+#
+# For a full accuracy check (autonomous lap + cone map vs ground truth),
+# use run_lap_validation.sh instead.
+#
 # Usage:
 #   scripts/start_sim_and_log_slam.sh [duration_seconds]
 # Example:
@@ -26,9 +32,10 @@ docker exec racing_perception bash -lc "ps -eo pid,args | grep -E '[r]os2 run co
 
 sleep 1
 
-docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector'
-docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper'
-docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run landmark_slam landmark_slam'
+for node in "cone_detector YOLO_cone_detector" "cone_mapper cone_mapper" "landmark_slam landmark_slam"; do
+  docker exec -d racing_perception bash -lc \
+    "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run ${node} --ros-args -p use_sim_time:=true"
+done
 
 sleep 3
 

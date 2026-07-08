@@ -1,6 +1,7 @@
 # Perception Outputs (Simple Guide)
 
-This file shows exactly **what is published**, **who publishes it**, and **how to read it**.
+What is published, who publishes it, and how to read it. Written for other
+teams (path planning, control) consuming perception's topics.
 
 ---
 
@@ -12,92 +13,91 @@ This file shows exactly **what is published**, **who publishes it**, and **how t
 | `/cone_map/local` | `std_msgs/String` | `cone_mapper` | path planning (current) |
 | `/cone_map/global` | `std_msgs/String` | `cone_mapper` | debugging / future global planning |
 
-Yes, a **global cone map is being created** and published on `/cone_map/global`.
-
 ---
 
 ## 2) What SLAM Actually Gives You
 
-### What SLAM needs as input
+### Inputs SLAM needs to produce a pose
 
-| Input topic | Type | Where it comes from | Required? |
+| Input topic | Type | Source | Required? |
 |---|---|---|---|
-| `/imu/data` | `sensor_msgs/Imu` | sim or real IMU | yes — yaw rate for prediction |
-| `/ros_can/twist` | `TwistWithCovarianceStamped` | **real car only** (ros_can node) | one velocity source required |
-| `/gps_controller/vel` | `Vector3Stamped` | **EUFS sim** GPS plugin | one velocity source required |
-| `/cone_cloud/local` | `PointCloud2` | `cone_detector` (YOLO) | yes — position corrections |
+| `/imu/data` | `sensor_msgs/Imu` | IMU (sim or real) | yes — heading |
+| `/ros_can/twist` | `TwistWithCovarianceStamped` | real car (`ros_can`) | one velocity source |
+| `/gps_controller/vel` | `Vector3Stamped` | EUFS sim GPS plugin | one velocity source |
+| `/cone_cloud/local` | `PointCloud2` | `cone_detector` (YOLO) | yes — position correction |
 
-`landmark_slam` automatically prefers `/ros_can/twist` when it is being
-received and falls back to `/gps_controller/vel` otherwise, so the same node
-works in sim and on the car with no remapping.  If neither velocity source is
-alive the node logs a warning and position will NOT track — this was the cause
-of the original "high SLAM error vs ground truth" issue.
+`landmark_slam` prefers `/ros_can/twist` when it's being received and falls
+back to `/gps_controller/vel` otherwise, so the same node works in sim and on
+the car unmodified. Without a velocity source the pose cannot translate — the
+node logs a warning if neither topic is publishing.
 
-From `/odometry/slam`:
+### Reading `/odometry/slam`
 
-- `msg.pose.pose.position.x`
-- `msg.pose.pose.position.y`
+- `msg.pose.pose.position.x`, `.y`
 - `msg.pose.pose.orientation` (quaternion; yaw is heading)
 - `msg.pose.covariance` (uncertainty)
 
-In plain terms: **SLAM gives the car pose in map frame** (where the car is + where it is pointing).
+Pose is in the **map frame** — the origin is wherever `landmark_slam` started,
+not a GPS-anchored point.
 
 ---
 
 ## 3) Cone Data Format (what planner uses now)
 
-`/cone_map/local` is CSV text in one string. Each line is:
+`/cone_map/local` is CSV text in one string, one cone per line:
 
-`x,y,z,color,confidence`
+```
+x,y,z,color,confidence
+```
 
 Color IDs:
 
 - `0` = blue (left boundary)
 - `1` = yellow (right boundary)
-- `2` = orange (marker; usually ignore for boundary)
+- `2` = orange (start/finish marker; ignore for boundary)
 - `3` = unknown
 
-Example line:
+Example line: `5.73,2.69,0.54,0,0.85`
 
-`5.73,2.69,0.54,0,0.85`
+Cones below 0.3 confidence are held back from this topic — everything
+published here has been seen enough times to be trusted.
 
 ---
 
 ## 4) Fastest Way to Reach the Topics
 
-### One consistent command (recommended)
-
-From repo root:
+### Quick smoke test
 
 ```bash
 ./scripts/start_sim_and_log_slam.sh 20
 ```
 
-What it does:
-- starts `base`, `perception`, `eufs_sim`
-- restarts `cone_detector`, `cone_mapper`, `landmark_slam`
-- runs quick topic health checks
-- runs SLAM validator for 20s and writes a log to `logs/slam_validation_*.log`
+Starts the stack, restarts the three perception nodes, prints topic health,
+samples SLAM error for 20s. Use after a code change to check nothing is
+obviously broken.
 
----
-
-### Start stack
+### Full accuracy check (autonomous lap vs ground truth)
 
 ```bash
-docker compose up -d base perception eufs_sim
+./scripts/run_lap_validation.sh 1 2.5   # laps, speed m/s
 ```
 
-### Start perception nodes
+Drives a full lap with a test-only pure-pursuit driver, then validates SLAM
+pose and the cone map against simulator ground truth. Takes longer but is
+the real regression test — run this before trusting a change.
+
+### Manual commands
 
 ```bash
+# Start stack
+docker compose up -d base perception eufs_sim
+
+# Start perception nodes
 docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_detector YOLO_cone_detector'
 docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run cone_mapper cone_mapper'
 docker exec -d racing_perception bash -lc 'source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run landmark_slam landmark_slam'
-```
 
-### Read one message from each topic
-
-```bash
+# Read one message from each topic
 docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic echo /odometry/slam --once'
 docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic echo /cone_map/local --once'
 docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && ros2 topic echo /cone_map/global --once'
@@ -113,32 +113,17 @@ docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && tim
 docker exec racing_perception bash -lc 'source /opt/ros/humble/setup.bash && timeout 5 ros2 topic hz /cone_map/local'
 ```
 
-Expected:
-
-- `/odometry/slam`: roughly 50–90 Hz
-- `/cone_map/local`: roughly 10–20 Hz (depends on detections)
+Expected rates: `/odometry/slam` 50–90 Hz, `/cone_map/local` 10–20 Hz
+(depends on detections).
 
 ---
 
 ## 6) For Path Planning Team (Minimal)
 
-Use only these two subscriptions:
+Subscribe to just these two:
 
 1. `/odometry/slam` for car pose
-2. `/cone_map/local` for cones
+2. `/cone_map/local` for cones — blue (`color==0`) is left, yellow
+   (`color==1`) is right, ignore orange/unknown for boundaries
 
-Then:
-
-- take blue (`color==0`) as left cones
-- take yellow (`color==1`) as right cones
-- ignore orange/unknown for boundaries
-
-That is enough for centerline + local goal + RRT*.
-
----
-
-## 7) Structured Topic Status
-
-`/cone_map/structured` is **not part of the current production path**.
-
-For now, use `/cone_map/local` as the single cone input for planning.
+That's enough for centerline generation, local goal selection, and RRT*.

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Test-only lap driver: pure pursuit on the ground-truth track centerline.
 
