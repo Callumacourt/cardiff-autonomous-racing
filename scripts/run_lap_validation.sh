@@ -26,12 +26,14 @@ until docker exec racing_eufs_sim bash -c \
   sleep 5
 done
 
-echo "[2/6] Resetting sim state..."
+echo "[2/6] Resetting sim state (non-fatal if sim is freshly started)..."
 docker exec racing_eufs_sim bash -c '
   source /opt/ros/humble/setup.bash &&
   source /workspace/eufs_sim_humble/install/setup.bash &&
-  timeout 10 ros2 service call /ros_can/reset std_srvs/srv/Trigger {} >/dev/null &&
-  timeout 10 ros2 service call /ros_can/reset_vehicle_pos std_srvs/srv/Trigger {} >/dev/null'
+  ros2 daemon stop >/dev/null 2>&1;
+  timeout 15 ros2 service call /ros_can/reset std_srvs/srv/Trigger {} >/dev/null &&
+  timeout 15 ros2 service call /ros_can/reset_vehicle_pos std_srvs/srv/Trigger {} >/dev/null' \
+  || echo "  (reset skipped — continuing with current sim state)"
 
 echo "[3/6] Restarting perception nodes..."
 # bracket trick: pattern must not match this command's own cmdline

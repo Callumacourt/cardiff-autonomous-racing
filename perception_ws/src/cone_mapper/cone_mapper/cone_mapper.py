@@ -42,6 +42,17 @@ class ConeMapperNode(Node):
     # planner never plans around a cone seen only once or twice.
     LOCAL_PUBLISH_MIN_CONF = 0.3
 
+    # Ignore detections deeper than this (camera-frame metres): depth
+    # accuracy degrades with range and long-range errors put cones
+    # metres from their true spot. Matches landmark_slam's max_cone_range.
+    MAX_DETECTION_RANGE = 15.0
+
+    # Physical plausibility band for a cone's world-frame height (m).
+    # A bad depth sample (e.g. road surface in front of a distant cone)
+    # back-projects to below ground level — provably not a cone.
+    MIN_CONE_Z = -0.15
+    MAX_CONE_Z = 1.2
+
     def __init__(self):
         super().__init__('cone_mapper')
 
@@ -170,6 +181,10 @@ class ConeMapperNode(Node):
                     # Need to transform from camera to world
                     if not has_pose:
                         continue
+
+                    # Camera-frame z is depth: gate out long-range detections
+                    if z_cam > self.MAX_DETECTION_RANGE:
+                        continue
                     
                     # Camera -> Robot frame
                     point_robot = camera_to_robot_frame(x_cam, y_cam, z_cam)
@@ -181,6 +196,11 @@ class ConeMapperNode(Node):
                         self.latest_pose['orientation']
                     )
                 
+                # Reject physically impossible cone heights (bad depth)
+                if not (self.MIN_CONE_Z <= z_world <= self.MAX_CONE_Z):
+                    self.stats['coordinate_warnings'] += 1
+                    continue
+
                 # Parse color label
                 try:
                     color = int(label_f)

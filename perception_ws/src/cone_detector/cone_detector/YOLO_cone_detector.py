@@ -155,11 +155,32 @@ class YOLOConeDetector3D(Node):
                 class_id = int(box.cls[0])
                 px, py = (x1 + x2) // 2, (y1 + y2) // 2
 
+                # Skip boxes touching the left/right frame edge: a cone
+                # half out of frame has its box centre pulled off the cone
+                # body, so the depth sample hits the background and places
+                # a phantom cone metres from the real one. Happens when
+                # driving right past a cone — it is about to leave view
+                # anyway, so nothing of value is lost.
+                if x1 <= 3 or x2 >= rgb_image.shape[1] - 4:
+                    continue
+
+                # Skip boxes too small for a reliable depth sample: the 5x5
+                # median patch spills off a <8 px box onto the road in front
+                # of the cone, yielding a too-close depth.
+                if (y2 - y1) < 8:
+                    continue
+
                 colour, label = CLASS_TO_LABEL.get(class_id, ('unknown', -1))
                 if label == -1:
                     continue
 
-                depth = self._depth_at(depth_image, px, py)
+                # Sample depth at 65% of box height: always on the cone
+                # body, even when the ROI mask clips the top of a distant
+                # cone's box (the box centre can then land on the road and
+                # produce confident phantom cones metres short of the
+                # real one).
+                py_depth = y1 + int(0.65 * (y2 - y1))
+                depth = self._depth_at(depth_image, px, py_depth)
                 if depth <= 0.0 or depth > self.max_detection_distance:
                     continue
 
