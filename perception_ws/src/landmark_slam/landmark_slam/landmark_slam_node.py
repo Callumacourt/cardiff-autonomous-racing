@@ -219,7 +219,10 @@ class LandmarkSLAMNode(Node):
             return
         # World-frame velocity vector → speed over ground.  The car only
         # drives forward, so the unsigned magnitude is the forward velocity.
-        self._forward_velocity = math.hypot(float(msg.vector.x), float(msg.vector.y))
+        # Deadband: the magnitude of GPS noise never averages to zero, so
+        # without it the pose creeps forward ~0.05 m/s while parked.
+        speed = math.hypot(float(msg.vector.x), float(msg.vector.y))
+        self._forward_velocity = speed if speed > 0.15 else 0.0
         self._velocity_received = True
 
     def _velocity_check(self) -> None:
