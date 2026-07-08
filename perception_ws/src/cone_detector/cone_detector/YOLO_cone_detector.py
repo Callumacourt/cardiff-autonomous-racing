@@ -7,7 +7,8 @@ Subscribes (synchronised):
     /zed/left/camera_info        sensor_msgs/CameraInfo  intrinsics (once)
 
 Publishes:
-    /cone_cloud/local        sensor_msgs/PointCloud2  (x, y, z, label) per cone,
+    /cone_cloud/local        sensor_msgs/PointCloud2 per cone:
+                             (x, y, z, label, confidence),
                              CAMERA optical frame (X right, Y down, Z forward)
     /yolo_annotated_image    sensor_msgs/Image        debug view with boxes
 
@@ -45,6 +46,7 @@ POINT_FIELDS = [
     PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
     PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
     PointField(name='label', offset=12, datatype=PointField.FLOAT32, count=1),
+    PointField(name='confidence', offset=16, datatype=PointField.FLOAT32, count=1),
 ]
 
 
@@ -165,7 +167,7 @@ class YOLOConeDetector3D(Node):
                 Z = depth
                 X = (px - self.cx) * Z / self.fx
                 Y = (py - self.cy) * Z / self.fy
-                points.append((X, Y, Z, float(label)))
+                points.append((X, Y, Z, float(label), confidence))
 
                 cv2.rectangle(rgb_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(rgb_image, f'{colour} {confidence:.2f}', (x1, y1 - 10),

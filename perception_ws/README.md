@@ -36,22 +36,23 @@ docker build -f docker/Dockerfile.eufs_sim   -t car-eufs       .
 docker compose up -d base perception eufs_sim
 
 # 3. Start YOLO cone detector (background)
+#    (use_sim_time in sim only — omit it on the real car)
 docker exec -d racing_perception bash -c "
    source /opt/ros/humble/setup.bash &&
    source /workspace/perception_ws/install/setup.bash &&
-   ros2 run cone_detector YOLO_cone_detector"
+   ros2 run cone_detector YOLO_cone_detector --ros-args -p use_sim_time:=true"
 
 # 4. Start cone mapper (background)
 docker exec -d racing_perception bash -c "
    source /opt/ros/humble/setup.bash &&
    source /workspace/perception_ws/install/setup.bash &&
-   ros2 run cone_mapper cone_mapper"
+   ros2 run cone_mapper cone_mapper --ros-args -p use_sim_time:=true"
 
 # 5. Start landmark SLAM node (replaces ORB-SLAM3)
 docker exec -d racing_perception bash -c "
    source /opt/ros/humble/setup.bash &&
    source /workspace/perception_ws/install/setup.bash &&
-   ros2 run landmark_slam landmark_slam"
+   ros2 run landmark_slam landmark_slam --ros-args -p use_sim_time:=true"
 
 # 6. Verify all topics are flowing
 docker exec racing_perception bash -c "

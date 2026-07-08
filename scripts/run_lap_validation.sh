@@ -38,9 +38,10 @@ echo "[3/6] Restarting perception nodes..."
 docker exec racing_perception bash -c \
   "pkill -f '[c]one_detector|[c]one_mapper|[l]andmark_slam|[v]alidate_slam' || true"
 sleep 2
+# use_sim_time so node clocks (buffer aging etc.) follow the sim clock
 for node in "cone_detector YOLO_cone_detector" "cone_mapper cone_mapper" "landmark_slam landmark_slam"; do
   docker exec -d racing_perception bash -lc \
-    "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run ${node} > /workspace/logs/${node%% *}.log 2>&1"
+    "source /opt/ros/humble/setup.bash && source /workspace/perception_ws/install/setup.bash && ros2 run ${node} --ros-args -p use_sim_time:=true > /workspace/logs/${node%% *}.log 2>&1"
 done
 sleep 12
 
