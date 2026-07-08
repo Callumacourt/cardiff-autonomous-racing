@@ -38,15 +38,24 @@ class ConeMapperNode(Node):
         /mapping/diagnostics: System health (DiagnosticArray)
     """
     
+    # Cones below this confidence are held back from /cone_map/local so the
+    # planner never plans around a cone seen only once or twice.
+    LOCAL_PUBLISH_MIN_CONF = 0.3
+
     def __init__(self):
         super().__init__('cone_mapper')
-        
+
+        # Node clock (follows sim time when use_sim_time is set) so buffer
+        # aging matches the world the node is running in.
+        ros_now = lambda: self.get_clock().now().nanoseconds * 1e-9
+
         # Initialize mapping components
         self.global_map = PersistentGlobalMap(
             confidence_threshold=0.7,
-            min_detections=3
+            min_detections=3,
+            now_fn=ros_now
         )
-        self.local_buffer = LocalConeBuffer(max_size=200, max_age=6.0)
+        self.local_buffer = LocalConeBuffer(max_size=200, max_age=6.0, now_fn=ros_now)
         
         # Initialize visualizer
         self.visualizer = ConeVisualizer(frame_id='map')
@@ -125,24 +134,26 @@ class ConeMapperNode(Node):
         start_time = time.time()
         
         try:
-            # Read points from PointCloud2 — cone_detector publishes x, y, z, label
-            if 'label' not in {f.name for f in msg.fields}:
+            # cone_detector publishes x, y, z, label (+ confidence since v0.2)
+            available = {f.name for f in msg.fields}
+            if 'label' not in available:
                 self.get_logger().warning(
                     "Cone cloud has no 'label' field — dropping message",
                     throttle_duration_sec=5.0)
                 return
+            has_conf = 'confidence' in available
+            fields = ('x', 'y', 'z', 'label', 'confidence') if has_conf else \
+                     ('x', 'y', 'z', 'label')
 
             points_iter = point_cloud2.read_points(
-                msg,
-                field_names=('x', 'y', 'z', 'label'),
-                skip_nans=True
-            )
-            
+                msg, field_names=fields, skip_nans=True)
+
             valid_detections = 0
-            
+
             for p in points_iter:
                 try:
-                    x_cam, y_cam, z_cam, label_f = p
+                    x_cam, y_cam, z_cam, label_f = p[0], p[1], p[2], p[3]
+                    det_conf = float(p[4]) if has_conf else 1.0
                 except Exception:
                     continue
                 
@@ -177,7 +188,8 @@ class ConeMapperNode(Node):
                     color = ConeColor.BLUE  # Default
                 
                 # Add to local buffer
-                self.local_buffer.add_cone_detection(x_world, y_world, z_world, color)
+                self.local_buffer.add_cone_detection(
+                    x_world, y_world, z_world, color, confidence=det_conf)
                 self.stats['total_detections'] += 1
                 valid_detections += 1
             
@@ -206,12 +218,13 @@ class ConeMapperNode(Node):
     
     def _publish_local_map(self):
         """Publish local cone map as String message."""
-        local_cones = self.local_buffer.get_all_cones()
-        
+        local_cones = [c for c in self.local_buffer.get_all_cones()
+                       if c['confidence'] >= self.LOCAL_PUBLISH_MIN_CONF]
+
         if not local_cones:
             self.get_logger().debug("No local cones to publish")
             return
-        
+
         # Format: x,y,z,color,confidence
         output_lines = []
         for cone in local_cones:
