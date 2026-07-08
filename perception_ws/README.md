@@ -89,6 +89,22 @@ Both trajectories are expressed relative to their first pose before
 comparison (SLAM starts at the origin; sim ground truth starts at the
 spawn pose).
 
+### Full-lap validation (one command)
+
+```bash
+./scripts/run_lap_validation.sh 1 2.5   # laps, target speed m/s
+```
+
+Drives the car around the track with a test-only pure-pursuit driver
+(ground-truth centerline — no path planning / control involved), then
+validates SLAM pose and the built cone map against ground truth.
+
+Latest result (small_track, 1 lap @ 2.5 m/s, 2026-07-08):
+**pose RMSE 0.73 m** (loop closure verified: 1.39 m → 0.39 m),
+**cone map 65/67 (97%) mapped, 0 ghosts**, planner-format check OK.
+
+![Lap validation evidence](../docs/lap_validation_small_track.png)
+
 ---
 
 ## Run unit tests (no ROS required)
