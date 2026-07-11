@@ -174,10 +174,6 @@ if __name__ == "__main__":
     plt.close()
 
     """
-    Thought: if the expected acceleration is higher than the car can handle, 
-    wont the RPMs still match the expected values, since the motor will just do what is necessary to get there?
-    Or, since the motors work via torque requests will the motors always overshoot the rpm we want if the wheels start spinning?
-    I don't know enough about torque to tell.
 
     This is the data we send TO the car, if this helps:
     ai2vcu_data_.AI2VCU_ESTOP_REQUEST = ebs_state_;
@@ -186,6 +182,10 @@ if __name__ == "__main__":
     ai2vcu_data_.AI2VCU_STEER_ANGLE_REQUEST_deg = steering_;
     ai2vcu_data_.AI2VCU_AXLE_SPEED_REQUEST_rpm = rpm_request_;
 
+    ros_can converts a  +/- acceleration command into torque, brake, and rpm requests
+
     Btw, rpm_request is always the rpm limit, whenever acceleration > 0, otherwise it is 0. 
+    
+    relevent function in ros_can is CanInterface::commandCallback - line 184
 
     """
