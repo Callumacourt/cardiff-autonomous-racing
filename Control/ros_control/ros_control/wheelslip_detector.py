@@ -163,11 +163,11 @@ if __name__ == "__main__":
 
 
     plt.figure(figsize=(8, 4))
-    plt.plot(times, scaled_acel_values*desired_acceleration, label="Possible acceleration", color="tab:blue")
-    plt.axhline(desired_acceleration, color="tab:red", linestyle="--", label="Desired acceleration")
+    plt.plot(times, scaled_acel_values*desired_acceleration, label="Scaled acceleration command", color="tab:blue")
+    plt.axhline(desired_acceleration, color="tab:red", linestyle="--", label="Original acceleration command")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (m/s^2)")
-    plt.title("Wheel slip scaling over time")
+    plt.title("Acceleration command scaling over time")
     plt.legend()
     plt.tight_layout()
     plt.savefig("wheelslip_detector_plot.png")
