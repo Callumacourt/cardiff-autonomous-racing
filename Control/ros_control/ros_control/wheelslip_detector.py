@@ -48,21 +48,37 @@ class Timestep:
 
 
 class Symmetric_Wheelslip_Detector:
+
+    
+
     def __init__(self, timestep_size=0.05):
         self.timestep_size = timestep_size
+        self._previous_rpm = 0
+        self._previous_time = time()
     
     def start_timestep(self, expected_acceleration, initial_rpm):
+        """
+        Parameters
+        -
+        length: float, this is the time in seconds between the start of the timestep and the end of the timestep - this should be the same as for the MPC algorithm. I think?
+        
+        expected_acceleration: float, this is the acceleration in m/s^2 we want the car to do for this timestep
+        
+        initial_rpm: float, this is the RPM of the wheel when the timestep begins
+        """
         self._current_timestep = Timestep(length=self.timestep_size, expected_acceleration=expected_acceleration, initial_rpm=initial_rpm)
+        self._previous_rpm = initial_rpm
+        self._previous_time = time()
     
-    def _calculate_experienced_wheel_acceleration(self, current_rpm):
+    def _calculate_experienced_wheel_acceleration(self, current_rpm, current_time):
         """
         Should this calculate experienced acceleration from the initial to current or from previous to current?
 
         Calculates the acceleration the wheels have done
         """
-        initial_time = self._current_timestep.get_initial_time()
-        delta_t = time() - initial_time
-        u = self._current_timestep.get_initial_rpm() * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
+        #initial_time = self._current_timestep.get_initial_time()
+        delta_t = current_time - self._previous_time
+        u = self._previous_rpm * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
         v = current_rpm * 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60
 
         return (v - u) / delta_t
@@ -81,7 +97,7 @@ class Symmetric_Wheelslip_Detector:
         if current_time > self._current_timestep.get_final_time():
             print(f"WARNING, wheelslip timestep is {current_time - self._current_timestep.get_final_time()} seconds out of date! Unexpected TC/ABS may occur!")
         
-        experienced_wheel_acceleration = self._calculate_experienced_wheel_acceleration(current_rpm)
+        experienced_wheel_acceleration = self._calculate_experienced_wheel_acceleration(current_rpm, current_time)
         # if expected acceleration < 0, then car is breaking, check if rpm is too low
         if self._current_timestep.get_expected_acceleration() < 0:
             # if experienced > expected, then the wheels have not locked, so all is fine
@@ -97,6 +113,7 @@ class Symmetric_Wheelslip_Detector:
                 mask = 1
             else:
                 # return the ratio between expected and experienced. This way experienced * ratio = expected
+                print(f"Expected acceleration: {self._current_timestep.get_expected_acceleration()}, Experienced wheel acceleration: {experienced_wheel_acceleration}")
                 mask = self._current_timestep.get_expected_acceleration() / experienced_wheel_acceleration
             
         # if expected acceleration == 0, then car is coasting, nothing should change?
@@ -110,28 +127,51 @@ class Symmetric_Wheelslip_Detector:
 
 
 if __name__ == "__main__":
-    t = 0.05 # the time in seconds between mpc predictions
+    t = 0.25 # the time in seconds between mpc predictions
 
     ws_det = Symmetric_Wheelslip_Detector(timestep_size=t)
 
     current_rpm = 50.0 # the rpm of the car's wheel (modeling the car as only having a single wheel for now)
 
-    desired_acceleration = 1.0 # the acceleration in ms^-2 for the car to achieve over the next time step
+    mini_steps_per_second = 400 # amount of readings from car per second 
+    mini_steps = int(mini_steps_per_second*t) # amount of readings from car per MPC cycle
 
+    future_rpms = [current_rpm + (x**0.5)*0.15 for x in range(mini_steps)]
+    #future_rpms = [50,50,50,50,50,50,50,50,50,50,51,52,52,52,52,52,52,52,52,52]
+    
+    desired_acceleration = 1.05 * ((max(future_rpms) - min(future_rpms))* 2 * np.pi * Vehicle_Constants.WHEEL_RADIUS / 60)/t # the acceleration in ms^-2 for the car to achieve over the next time step
+    print(desired_acceleration)
     # set predicted rpm after acceleration for t seconds
     ws_det.start_timestep(expected_acceleration=desired_acceleration, initial_rpm=current_rpm)
+    
+    scaled_acel_values = []
 
-    mini_steps = 20
-
-    future_rpms = [current_rpm + x*0.15 for x in range(mini_steps)]
-    #future_rpms = [50,50,50,50,50,50,50,50,50,50,51,52,52,52,52,52,52,52,52,52]
     # wait t seconds
     for i in range(0, mini_steps):
         sleep(t/mini_steps)
-        print(future_rpms[i], ws_det.check_for_wheelslip(future_rpms[i]))
+        scaled_acel_values.append(ws_det.check_for_wheelslip(future_rpms[i]))
+        print(future_rpms[i], scaled_acel_values[-1])
 
-    # check what acceleration was achieved
+    
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
+    scaled_acel_values = np.array(scaled_acel_values)
+
+    times = np.linspace(0, t, len(scaled_acel_values))
+
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(times, scaled_acel_values*desired_acceleration, label="Possible acceleration", color="tab:blue")
+    plt.axhline(desired_acceleration, color="tab:red", linestyle="--", label="Desired acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (m/s^2)")
+    plt.title("Wheel slip scaling over time")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("wheelslip_detector_plot.png")
+    plt.close()
 
     """
     Thought: if the expected acceleration is higher than the car can handle, 
