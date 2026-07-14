@@ -46,8 +46,8 @@ def convertStatesToList(states:list[Vehicle_State]) -> list[float]:
 def isPathGoodEnough(desiredPath, predictedPath) -> bool:
     return False
 
-#path_straight = [(0,0),(1,0),(2,0),(3,0),(4,0),(5,0),(6,0),(7,0),(8,0),(9,0)]
-path_straight = [(0,0),(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9)]
+path_straight = [(0,0),(1,0),(2,0),(3,0),(4,0),(5,0),(6,0),(7,0),(8,0),(9,0),(10,0)]
+#path_straight = [(0,0),(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9)]
 #path_straight = [(0,0),(0,1),(0,2),(0,3),(0,4),(0,5),(0,6),(0,7),(0,8),(0,9)]
 path_slight_bend_left = []
 path_slight_bend_right = []
@@ -93,8 +93,22 @@ def save_plot():
         ax.plot(predicted_x[-1], predicted_y[-1], 'ro', markersize=12)
 
         ax.set_title(name)
-        ax.set_xlim(min_coord-1, max_coord+1)
-        ax.set_ylim(min_coord-1, max_coord+1)
+        
+        all_x = desired_x + predicted_x
+        all_y = desired_y + predicted_y
+
+        center_x = (min(all_x) + max(all_x)) / 2
+        center_y = (min(all_y) + max(all_y)) / 2
+        span_x = max(all_x) - min(all_x)
+        span_y = max(all_y) - min(all_y)
+        padding = 1.0
+        side_length = max(span_x, span_y) + 2 * padding
+
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(center_x - side_length / 2, center_x + side_length / 2)
+        ax.set_ylim(center_y - side_length / 2, center_y + side_length / 2)
+        #ax.set_xlim(min_coord-1, max_coord+1)
+        #ax.set_ylim(min_coord-1, max_coord+1)
         ax.legend()
 
         filepath = plot_dir / f"{name.replace(" ","_")}.png"

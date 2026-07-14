@@ -30,14 +30,14 @@ class Model_Predictive_Control():
 
 
         # calculate each state on the path (model stores its own state after each calculation)
-        for i in range(1,self.horizon):
+        for i in range(1,len(inputs)):
             self.dynamics_model.calculate_next_state(input=inputs[i])
             states.append(self.dynamics_model.get_state())
 
         return states
 
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped,last:bool) -> float:
-        cost = 0
+        """cost = 0
         pose = pose_stamped.pose
         
         if state.directional_velocity == 0:
@@ -56,6 +56,17 @@ class Model_Predictive_Control():
 
         #penalize super sharp steering
         cost += 5 * state.yaw_rate
+        """
+        cost = 0
+        if state.directional_velocity < 0:
+            cost += 1000 + abs(state.directional_velocity) * 100
+        else:
+            cost += abs(2.75 - state.directional_velocity)
+        
+        cost += abs(state.yaw_angle)*100 + abs(state.yaw_rate)*10
+
+        if last:
+            cost += abs(state.directional_velocity)*10
 
         """       
         #massively punish movement if last node, this should ensure the car is always able to stop by the end of the path
@@ -81,7 +92,7 @@ class Model_Predictive_Control():
 
         #calculate the cost for each and sum them
         total_cost = 0
-        for i in range(0,self.horizon):
+        for i in range(0,len(inputs)):
             total_cost += self.stage_cost(state=states[i],input=inputs[i],pose_stamped=required_path.poses[i],last=True if i+1 == self.horizon else False)
 
         return total_cost
