@@ -3,17 +3,32 @@
 
 #include <deque>
 #include <mutex>
+#include <string>
+#include <vector>
+
+#include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/core/core.hpp>
+#include <GL/glew.h>
+
 #include "System.h"
-#include <rclcpp/time.hpp>
 
 /// \brief Handles stereo image and IMU synchronization and feeds them to ORB-SLAM3
 class ImageGrabberInertial {
 public:
-    /// Constructor: stores pointer to the SLAM system
-    ImageGrabberInertial(ORB_SLAM3::System* pSLAM)
-        : m_SLAM(pSLAM), m_leftImage(nullptr), m_rightImage(nullptr) {}
+    ImageGrabberInertial(ORB_SLAM3::System* pSLAM,
+                         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub,
+                         rclcpp::Node::SharedPtr node,
+                         const std::string& child_frame,
+                         double max_sync_delta);
+
+    void SetupSubscriptions(const std::string& left_topic,
+                            const std::string& right_topic,
+                            const std::string& imu_topic,
+                            double manual_sync_period_ms);
 
     /// \brief Callback for synchronized stereo images
     void GrabStereo(const sensor_msgs::msg::Image::ConstSharedPtr& left,
@@ -28,8 +43,22 @@ public:
 private:
     /// \brief Triggers ORB-SLAM3 tracking if stereo and IMU data are ready
     void TryTrackStereoIfReady();
+    cv::Mat ConvertToGray(const sensor_msgs::msg::Image::ConstSharedPtr& img) const;
+    std::vector<ORB_SLAM3::IMU::Point> ExtractImuMeasurementsLocked(double frame_time);
+    void PublishPose(const Sophus::SE3f& se3, const rclcpp::Time& stamp);
 
     ORB_SLAM3::System* m_SLAM;  ///< Pointer to SLAM system
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+    rclcpp::Node::SharedPtr node_;
+    rclcpp::Logger logger_;
+    std::string tf_frame_;
+    double max_sync_delta_ = 0.0;
+
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr left_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr right_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
+    rclcpp::TimerBase::SharedPtr manual_sync_timer_;
+
     sensor_msgs::msg::Image::ConstSharedPtr m_leftImage;  ///< Latest left image
     sensor_msgs::msg::Image::ConstSharedPtr m_rightImage; ///< Latest right image
     std::deque<sensor_msgs::msg::Imu::SharedPtr> m_imuQueue; ///< Buffered IMU messages

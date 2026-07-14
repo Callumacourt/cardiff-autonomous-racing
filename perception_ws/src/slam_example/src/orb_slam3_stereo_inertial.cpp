@@ -1,19 +1,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/synchronizer.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <string>
 
 #include "slam_example/image_grabber_stereo_inertial.hpp"
 #include "System.h"  // ORB-SLAM3 core system
-
-using std::placeholders::_1;
-using std::placeholders::_2;
-
-/// Sync policy: approximate matching of left/right images
-using StereoApproxSyncPolicy = message_filters::sync_policies::ApproximateTime<
-    sensor_msgs::msg::Image, sensor_msgs::msg::Image>;
 
 int main(int argc, char **argv)
 {
@@ -22,11 +14,19 @@ int main(int argc, char **argv)
     auto node = rclcpp::Node::make_shared("orb_slam3_stereo_inertial");
 
     // --- Parameter handling ---
-    std::string vocab_file, settings_file;
-    node->declare_parameter("vocab_path", "");
-    node->declare_parameter("config_path", "");
-    node->get_parameter("vocab_path", vocab_file);
-    node->get_parameter("config_path", settings_file);
+    const auto vocab_file = node->declare_parameter<std::string>("vocab_path", "");
+    const auto settings_file = node->declare_parameter<std::string>("config_path", "");
+    const auto left_image_topic = node->declare_parameter<std::string>(
+        "left_image_topic", "/zed/left/image_rect_color");
+    const auto right_image_topic = node->declare_parameter<std::string>(
+        "right_image_topic", "/zed/right/image_rect_color");
+    const auto imu_topic = node->declare_parameter<std::string>(
+        "imu_topic", "/zed/imu/data");
+    const auto viewer_enabled = node->declare_parameter<bool>("viewer", true);
+    const auto sync_timer_ms = node->declare_parameter<int>("sync_timer_ms", 33);
+    const auto odom_topic = node->declare_parameter<std::string>("odom_topic", "/odometry/slam");
+    const auto child_frame_id = node->declare_parameter<std::string>("child_frame_id", "base_link");
+    const auto max_sync_delta = node->declare_parameter<double>("max_sync_delta", 0.02);
 
     if (vocab_file.empty() || settings_file.empty()) {
         RCLCPP_FATAL(node->get_logger(), "vocab_path or config_path is empty! Exiting...");
@@ -35,33 +35,36 @@ int main(int argc, char **argv)
 
     RCLCPP_INFO(node->get_logger(), "Vocab path: %s", vocab_file.c_str());
     RCLCPP_INFO(node->get_logger(), "Config path: %s", settings_file.c_str());
+    RCLCPP_INFO(node->get_logger(), "Left image topic: %s", left_image_topic.c_str());
+    RCLCPP_INFO(node->get_logger(), "Right image topic: %s", right_image_topic.c_str());
+    RCLCPP_INFO(node->get_logger(), "IMU topic: %s", imu_topic.c_str());
+    RCLCPP_INFO(node->get_logger(), "Viewer enabled: %s", viewer_enabled ? "true" : "false");
+    RCLCPP_INFO(node->get_logger(), "Odometry topic: %s", odom_topic.c_str());
+    RCLCPP_INFO(node->get_logger(), "Child frame: %s", child_frame_id.c_str());
+    RCLCPP_INFO(node->get_logger(), "Max sync delta: %.4f s", max_sync_delta);
 
     // --- Create SLAM system ---
-    ORB_SLAM3::System SLAM(vocab_file, settings_file, ORB_SLAM3::System::IMU_STEREO, true);
+    ORB_SLAM3::System SLAM(
+        vocab_file,
+        settings_file,
+        ORB_SLAM3::System::IMU_STEREO,
+        viewer_enabled);
 
-    // --- Create grabber class ---
-    auto grabber = std::make_shared<ImageGrabberInertial>(&SLAM);
+    // --- Create odometry publisher and grabber class ---
+    auto odom_pub = node->create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
+    auto grabber = std::make_shared<ImageGrabberInertial>(
+        &SLAM,
+        odom_pub,
+        node,
+        child_frame_id,
+        max_sync_delta);
 
-    // --- Stereo image subscribers ---
-    auto qos = rclcpp::SensorDataQoS();  // Matches ZED driver
-    node->create_subscription<sensor_msgs::msg::Image>(
-        "/zed/left/image_rect_color", rclcpp::SensorDataQoS(),
-        std::bind(&ImageGrabberInertial::GrabLeft, grabber.get(), _1));
-    
-    node->create_subscription<sensor_msgs::msg::Image>(
-        "/zed/right/image_rect_color", rclcpp::SensorDataQoS(),
-        std::bind(&ImageGrabberInertial::GrabRight, grabber.get(), _1));
-    
-    // Timer to check for stereo sync ~30Hz
-    node->create_wall_timer(
-        std::chrono::milliseconds(33),
-        std::bind(&ImageGrabberInertial::AttemptManualSync, grabber.get()));
-    // Create a message filter for stereo image synchronization    
-
-    // --- IMU subscriber ---
-    auto imu_sub = node->create_subscription<sensor_msgs::msg::Imu>(
-        "/camera/imu/data", rclcpp::SensorDataQoS(),  // High queue depth to match high IMU rate
-        std::bind(&ImageGrabberInertial::GrabImu, grabber.get(), _1));
+    // --- Wire up subscriptions/timers via grabber ---
+    grabber->SetupSubscriptions(
+        left_image_topic,
+        right_image_topic,
+        imu_topic,
+        static_cast<double>(sync_timer_ms));
 
     // --- Start ROS loop ---
     RCLCPP_INFO(node->get_logger(), "ORB-SLAM3 stereo-inertial node started.");

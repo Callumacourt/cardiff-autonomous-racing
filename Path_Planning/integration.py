@@ -6,7 +6,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import Header, String
-from nav_msgs.msg import Path
+from nav_msgs.msg import Path, Odometry
 
 class PathPlannerNode(Node):
     def __init__(self):
@@ -18,16 +18,16 @@ class PathPlannerNode(Node):
         self.centerline = []
         self.last_goal_idx = 0
 
-        # Subscribe to cone mapper output 
-        self.create_subscription(PoseStamped, '/car_pose', self.pose_callback, 10)
-        self.create_subscription(String, '/cone_map/local', self.world_cones_callback, 10)  
+        # Subscribe to cone mapper output
+        self.create_subscription(Odometry, '/odometry/slam', self.pose_callback, 10)
+        self.create_subscription(String, '/cone_map/local', self.world_cones_callback, 10)
 
         # Publisher for the planned path
         self.path_pub = self.create_publisher(Path, '/planned_path', 10)
         self.timer = self.create_timer(0.2, self.main_loop)
 
-    def pose_callback(self, msg):
-        self.current_pose = (msg.pose.position.x, msg.pose.position.y)
+    def pose_callback(self, msg: Odometry):
+        self.current_pose = (msg.pose.pose.position.x, msg.pose.pose.position.y)
 
     def world_cones_callback(self, msg):
         """Parse cone data from cone mapper"""

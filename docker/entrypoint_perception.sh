@@ -7,8 +7,8 @@ echo " Starting Perception Module..."
 source /opt/ros/humble/setup.bash
 
 # Set ORB_SLAM3 environment variables
-export ORB_SLAM3_ROOT_DIR=/workspace/ORB_SLAM3
-export PYTHONPATH="${PYTHONPATH}:/workspace/ORB_SLAM3/lib"
+export ORB_SLAM3_ROOT_DIR=/workspace/perception_ws/ORB_SLAM3
+export PYTHONPATH="${PYTHONPATH}:${ORB_SLAM3_ROOT_DIR}/lib"
 
 # Source our workspace
 if [ -f /workspace/perception_ws/install/setup.bash ]; then
@@ -22,9 +22,9 @@ else
 fi
 
 echo " Perception system ready. Available nodes:"
-echo "  - ros2 run cone_detector cone_detector_node"
 echo "  - ros2 run cone_mapper cone_mapper_node"
-echo "  - ros2 run slam_example slam_node"
+echo "  - ros2 run slam_example orb_slam3_stereo"
+echo "  - ros2 run slam_example orb_slam3_stereo_inertial"
 
 # Execute the command passed to docker run
 exec "$@"
