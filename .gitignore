@@ -5,3 +5,4 @@ log/
 Control/logs/
 **__pycache__/
 Control/ros_control/ros_control/tests/test_plots/*
+.vscode/settings.json
