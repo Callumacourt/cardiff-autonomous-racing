@@ -1,4 +1,6 @@
-# Script to rerun packages after code changes
+#!/usr/bin/env bash
+# Rebuild and restart one perception package after a code change, without
+# restarting the whole stack.
 
 set -euo pipefail
 
