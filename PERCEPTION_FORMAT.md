@@ -21,7 +21,7 @@ teams (path planning, control) consuming perception's topics.
 
 | Input topic | Type | Source | Required? |
 |---|---|---|---|
-| `/imu/data` | `sensor_msgs/Imu` | IMU (sim or real) | yes — heading |
+| `imu_topic` param, default `/imu/data` | `sensor_msgs/Imu` | sim IMU plugin; `/ros_can/imu` on the real car | yes — heading |
 | `/ros_can/twist` | `TwistWithCovarianceStamped` | real car (`ros_can`) | one velocity source |
 | `/gps_controller/vel` | `Vector3Stamped` | EUFS sim GPS plugin | one velocity source |
 | `/cone_cloud/local` | `PointCloud2` | `cone_detector` (YOLO) | yes — position correction |
@@ -118,7 +118,26 @@ Expected rates: `/odometry/slam` 50–90 Hz, `/cone_map/local` 10–20 Hz
 
 ---
 
-## 6) For Path Planning Team (Minimal)
+## 6) Real-Car Launch (ZED2)
+
+Sim topic names are the defaults. On the real car, override at launch:
+
+```bash
+ros2 run cone_detector YOLO_cone_detector --ros-args \
+  -p rgb_topic:=/zed/zed_node/rgb/image_rect_color \
+  -p depth_topic:=/zed/zed_node/depth/depth_registered \
+  -p camera_info_topic:=/zed/zed_node/left/camera_info
+
+ros2 run landmark_slam landmark_slam --ros-args \
+  -p imu_topic:=/ros_can/imu \
+  -p camera_x_offset:=<measured> -p camera_y_offset:=<measured>
+```
+
+Confirm the exact ZED2 wrapper topic names with `ros2 topic list` once it's
+running — they depend on the wrapper's `camera_name` launch param.
+`/ros_can/twist` needs no override — same topic name real and sim.
+
+## 7) For Path Planning Team (Minimal)
 
 Subscribe to just these two:
 

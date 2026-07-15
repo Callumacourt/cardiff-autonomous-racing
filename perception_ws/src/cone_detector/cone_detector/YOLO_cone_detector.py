@@ -1,10 +1,11 @@
 """
 YOLOv8 cone detector with depth-based 3-D localisation.
 
-Subscribes (synchronised):
-    /zed/left/image_rect_color   sensor_msgs/Image   RGB camera
-    /zed/depth/image_raw         sensor_msgs/Image   depth (32FC1, metres)
-    /zed/left/camera_info        sensor_msgs/CameraInfo  intrinsics (once)
+Subscribes (synchronised), topic names are ROS params (default = sim topics,
+override at launch for the real ZED2, e.g. -p rgb_topic:=/zed/zed_node/rgb/image_rect_color):
+    rgb_topic          sensor_msgs/Image        RGB camera         (default /zed/left/image_rect_color)
+    depth_topic        sensor_msgs/Image        depth, 32FC1, m    (default /zed/depth/image_raw)
+    camera_info_topic  sensor_msgs/CameraInfo   intrinsics (once)  (default /zed/left/camera_info)
 
 Publishes:
     /cone_cloud/local        sensor_msgs/PointCloud2 per cone:
@@ -69,16 +70,23 @@ class YOLOConeDetector3D(Node):
         self.max_detection_distance = 20.0  # metres
         self.mask_upper_fraction = 0.4      # black out sky/horizon (top 40 %)
 
-        # Camera intrinsics — populated from /zed/left/camera_info once
+        # Camera topics — default to the sim's names, override at launch for
+        # the real ZED2 (e.g. -p rgb_topic:=/zed/zed_node/rgb/image_rect_color).
+        self.declare_parameter('rgb_topic', '/zed/left/image_rect_color')
+        self.declare_parameter('depth_topic', '/zed/depth/image_raw')
+        self.declare_parameter('camera_info_topic', '/zed/left/camera_info')
+        rgb_topic = self.get_parameter('rgb_topic').value
+        depth_topic = self.get_parameter('depth_topic').value
+        camera_info_topic = self.get_parameter('camera_info_topic').value
+
+        # Camera intrinsics — populated from camera_info_topic once
         self.fx = self.fy = self.cx = self.cy = None
         self.create_subscription(
-            CameraInfo, '/zed/left/camera_info', self._camera_info_cb, 1)
+            CameraInfo, camera_info_topic, self._camera_info_cb, 1)
 
         # Synchronised RGB + depth
-        self.rgb_sub = message_filters.Subscriber(
-            self, Image, '/zed/left/image_rect_color')
-        self.depth_sub = message_filters.Subscriber(
-            self, Image, '/zed/depth/image_raw')
+        self.rgb_sub = message_filters.Subscriber(self, Image, rgb_topic)
+        self.depth_sub = message_filters.Subscriber(self, Image, depth_topic)
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [self.rgb_sub, self.depth_sub], queue_size=10, slop=0.1)
         self.ts.registerCallback(self.image_callback)

@@ -2,7 +2,9 @@
 Landmark SLAM ROS2 node — drop-in replacement for ORB-SLAM3.
 
 Publishes  /odometry/slam  (nav_msgs/Odometry) by fusing:
-  • /imu/data              IMU yaw rate → prediction step (required)
+  • imu_topic (param)      IMU yaw rate → prediction step (required)
+                           default /imu/data (sim); real car is /ros_can/imu
+                           (published by the ros_can node, ADS-DV onboard IMU)
   • /cone_cloud/local      YOLO cone detections in camera frame → EKF update
   • /ros_can/twist         forward velocity from race-car CAN (real car;
                            published by the ros_can node, NOT present in sim)
@@ -115,8 +117,13 @@ class LandmarkSLAMNode(Node):
         self._odom_pub = self.create_publisher(Odometry, '/odometry/slam', 10)
 
         # ── Subscribers ───────────────────────────────────────────────────
-        # IMU — runs the prediction step at full IMU rate
-        self.create_subscription(Imu, '/imu/data', self._imu_cb, 200)
+        # IMU — runs the prediction step at full IMU rate.  Topic is a ROS
+        # param: sim's IMU plugin publishes /imu/data, the real car's IMU
+        # (onboard the ADS-DV, via ros_can) publishes /ros_can/imu instead —
+        # override at launch with -p imu_topic:=/ros_can/imu on the real car.
+        self.declare_parameter('imu_topic', '/imu/data')
+        imu_topic = self.get_parameter('imu_topic').value
+        self.create_subscription(Imu, imu_topic, self._imu_cb, 200)
 
         # Cone detections — runs the EKF update step.  Depth 1: only the
         # newest cloud matters; a backlog of stale clouds would drag the
