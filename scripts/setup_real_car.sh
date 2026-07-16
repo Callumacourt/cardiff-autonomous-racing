@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # One-press perception bringup for the FS-AI car — native, no Docker.
-# Automates ON_CAR_SETUP.md steps 1-8: ZED SDK, wrapper build, model path,
-# perception build, ZED camera + perception launch, health check.
+# Automates ON_CAR_SETUP.md steps 1, 6, 7(A+C) and 8: model path, build,
+# ZED camera + perception launch, health check.
 #
 # Usage:
 #   ./setup_real_car.sh          set everything up and launch
 #   ./setup_real_car.sh stop     stop perception + camera
 #
-# Only run this ON the car, booted from the SSD — the ZED SDK step installs
-# kernel-linked components (dkms) that must target the running kernel.
+# One-time installs (ZED SDK, wrapper debs/build) are NOT automated —
+# they're interactive; follow ON_CAR_SETUP.md steps 2-5 once per SSD.
 # ros_can is Control's node — launch it per ON_CAR_SETUP.md step 7B;
 # this script only checks that its topics are alive.
 
@@ -25,7 +25,6 @@ CAMERA_X_OFFSET="0.0"             # metres forward of car reference — measure
 CAMERA_Y_OFFSET="0.0"             # metres left of car reference   — and edit!
 CAMERA_MODEL="zed2"
 ZED_WS="$HOME/zed_ws"
-INSTALLERS_DIR="$HOME/installers"
 CAMERA_STARTUP_TIMEOUT=45         # s to wait for ZED topics after launch
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -72,39 +71,7 @@ print(f"  torch {torch.__version__}, CUDA available: {torch.cuda.is_available()}
 EOF
 
 # ---------------------------------------------------------------------------
-# 2. ZED SDK (ON_CAR_SETUP.md steps 2-4) — one-time. Installs dkms/kernel-linked
-#    components, so this must run on the car's actual booted kernel, not a
-#    chroot. Skips the NVIDIA driver (580 is already installed) and the AI
-#    object-detection module downloads (we run our own YOLO).
-# ---------------------------------------------------------------------------
-step "ZED SDK"
-if [ -d /usr/local/zed ]; then
-  echo "  already installed"
-else
-  echo "  installing ZED wrapper .debs..."
-  if ls "$INSTALLERS_DIR"/wrapper_debs/*.deb >/dev/null 2>&1; then
-    sudo dpkg -i "$INSTALLERS_DIR"/wrapper_debs/*.deb \
-      || { echo "  dpkg reported missing deps, trying apt -f install (needs internet)..."; sudo apt -f install -y; }
-  else
-    echo "  no wrapper .debs found in $INSTALLERS_DIR/wrapper_debs — skipping"
-  fi
-
-  ZED_INSTALLER=$(ls "$INSTALLERS_DIR"/ZED_SDK_*cuda12.8*.run 2>/dev/null | head -1)
-  [ -n "$ZED_INSTALLER" ] || ZED_INSTALLER=$(ls "$INSTALLERS_DIR"/ZED_SDK_*.run 2>/dev/null | head -1)
-  [ -n "$ZED_INSTALLER" ] || die "no ZED SDK installer (.run) found in $INSTALLERS_DIR"
-
-  echo "  running $(basename "$ZED_INSTALLER")"
-  echo "  (skipping driver reinstall — 580 is already installed; skipping AI-module download)"
-  chmod +x "$ZED_INSTALLER"
-  "$ZED_INSTALLER" -- silent skip_drivers skip_od_module
-  if [ ! -d /usr/local/zed ]; then
-    die "ZED SDK install did not produce /usr/local/zed — rerun interactively (./$( basename "$ZED_INSTALLER" )) to see the failure, or try the fallback installer per ON_CAR_SETUP.md step 4"
-  fi
-  echo "  installed"
-fi
-
-# ---------------------------------------------------------------------------
-# 3. YOLO weights at the detector's fixed path (ON_CAR_SETUP.md step 1)
+# 2. YOLO weights at the detector's fixed path (ON_CAR_SETUP.md step 1)
 # ---------------------------------------------------------------------------
 step "YOLO weights -> $MODEL_DST"
 [ -f "$MODEL_SRC" ] || die "weights not found at $MODEL_SRC"
@@ -118,7 +85,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Build perception (ON_CAR_SETUP.md step 6; incremental, fast if unchanged)
+# 3. Build perception (ON_CAR_SETUP.md step 6; incremental, fast if unchanged)
 # ---------------------------------------------------------------------------
 step "Building perception workspace ($PKGS)"
 cd "$WS"
@@ -126,8 +93,7 @@ colcon build --symlink-install --packages-select $PKGS || die "colcon build fail
 source "$WS/install/setup.bash"
 
 # ---------------------------------------------------------------------------
-# 5. ZED camera (ON_CAR_SETUP.md step 5 + 7A) — build wrapper if needed,
-#    launch only if not already up
+# 4. ZED camera (ON_CAR_SETUP.md step 7A) — launch only if not already up
 # ---------------------------------------------------------------------------
 mkdir -p "$LOG_DIR"
 topic_up() { ros2 topic list 2>/dev/null | grep -qx "$1"; }
@@ -136,13 +102,8 @@ step "ZED camera"
 if topic_up "$RGB_TOPIC"; then
   echo "  already publishing"
 else
-  if [ ! -f "$ZED_WS/install/setup.bash" ]; then
-    echo "  wrapper not built yet — building (ON_CAR_SETUP.md step 5)..."
-    [ -d "$ZED_WS/src/zed-ros2-wrapper" ] \
-      || die "$ZED_WS/src has no zed-ros2-wrapper — clone it per ON_CAR_SETUP.md step 5 first"
-    ( cd "$ZED_WS" && colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release ) \
-      || die "zed_wrapper build failed"
-  fi
+  [ -f "$ZED_WS/install/setup.bash" ] \
+    || die "ZED wrapper not built at $ZED_WS — do ON_CAR_SETUP.md steps 2-5 first"
   echo "  launching zed_wrapper ($CAMERA_MODEL)..."
   source "$ZED_WS/install/setup.bash"
   nohup ros2 launch zed_wrapper zed_camera.launch.py camera_model:="$CAMERA_MODEL" \
@@ -157,20 +118,8 @@ else
   echo "  camera up"
 fi
 
-# depth/camera_info are only used as detector params (never checked by the
-# launch-wait above) — a wrong name here doesn't fail loudly, it just leaves
-# /cone_cloud/local silently empty. Check both explicitly so a mismatch is
-# caught now, not read as "detector just needs a moment" in the health check.
-sleep 2
-for t in "$DEPTH_TOPIC:DEPTH_TOPIC" "$CAMERA_INFO_TOPIC:CAMERA_INFO_TOPIC"; do
-  topic="${t%%:*}"; var="${t##*:}"
-  topic_up "$topic" \
-    || die "$var ('$topic') is not being published — run 'ros2 topic list | grep zed' and fix $var near the top of this script"
-done
-echo "  depth + camera_info topics confirmed"
-
 # ---------------------------------------------------------------------------
-# 6. Launch perception (ON_CAR_SETUP.md step 7C)
+# 5. Launch perception (ON_CAR_SETUP.md step 7C)
 # ---------------------------------------------------------------------------
 step "Restarting perception nodes (logs: $LOG_DIR)"
 stop_nodes
@@ -195,7 +144,7 @@ nohup ros2 run cone_mapper cone_mapper \
 PID_MAPPER=$!
 
 # ---------------------------------------------------------------------------
-# 7. Health check (ON_CAR_SETUP.md step 8)
+# 6. Health check (ON_CAR_SETUP.md step 8)
 # ---------------------------------------------------------------------------
 step "Health check (waiting 10s for nodes to come up)"
 sleep 10
