@@ -116,12 +116,31 @@ class Model_Predictive_Control():
         
         self.horizon = len(required_path.poses)
 
-        # Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
+        """# Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
         try:# create an initial guess based on the calculated inputs for the previous iteration
            # u0 = np.array([item for vi in self.previous_inputs for item in (vi.acceleration, vi.steering_angle)])
             u0 = np.array([item for vi in inputs for item in (vi.acceleration, vi.steering_angle)])
         except:
-            u0 = np.array([1, 0] * self.horizon)
+            u0 = np.array([1, 0] * self.horizon)"""
+        
+        if inputs is None:
+            source_inputs = self.previous_inputs
+        else:
+            source_inputs = inputs
+
+        u0_list = []
+        for i in range(self.horizon):
+            if i < len(source_inputs):
+                u0_list.extend([source_inputs[i].acceleration, source_inputs[i].steering_angle])
+            else:
+                fallback = self.previous_inputs[i] if i < len(self.previous_inputs) else Vehicle_Input(1.0, 0.0)
+                u0_list.extend([fallback.acceleration, fallback.steering_angle])
+
+        u0 = np.array(u0_list, dtype=float)
+        if u0.size < 2 * self.horizon:
+            u0 = np.pad(u0, (0, 2 * self.horizon - u0.size), mode='constant')
+        elif u0.size > 2 * self.horizon:
+            u0 = u0[:2 * self.horizon]
 
         # Bounds for acceleration and steering (example: acceleration [-5, 5], steering [-0.5, 0.5])
         bounds = [(-5, 5), (-0.5, 0.5)] * self.horizon
