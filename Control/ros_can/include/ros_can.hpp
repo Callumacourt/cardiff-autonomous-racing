@@ -81,7 +81,7 @@ class CanInterface : public rclcpp::Node {
   const float MAX_TORQUE_ = 195;             // Maximum available torque of the car
   const float MAX_RPM_ = 4000;               // Maximum available RPM of the car
   const float MAX_BRAKE_ = 100;              // Maximum available braking of the car
-  const float MAX_STEERING_ANGLE_DEG_ = 24;  // Max steering angle (degrees)
+  const float MAX_STEERING_ANGLE_DEG_ = 20;  // Max steering angle (degrees)
   const float WHEEL_RADIUS_ = 0.253;         // Radius of DDT car wheels
   const float WHEELBASE_ = 1.53;             // Wheelbase of the DDT car
   const float TOTAL_MASS_ = 300;             // Total mass of the DDT car in kg

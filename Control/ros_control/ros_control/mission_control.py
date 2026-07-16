@@ -178,13 +178,13 @@ class Mission_Control:
             self.logger().info("Sub task: Steer left")
 
             steering_angle = 0.5
-            if current_state.steering_angle_rad >= 3.7:#0.41:
+            if current_state.steering_angle_rad <= -0.3316:#0.41:
                 self.__static_A_flag = AFlag.RIGHT
         #steer all the way in the opposite direction
         if self.__static_A_flag == AFlag.RIGHT:
             self.logger().info("Sub task: Steer right")
             steering_angle = -0.5
-            if current_state.steering_angle_rad <= -3.7:#-0.41:
+            if current_state.steering_angle_rad >= 0.3316:#-0.41:
                 self.__static_A_flag = AFlag.CENTRE
         #steering back to centre
         if self.__static_A_flag == AFlag.CENTRE:
