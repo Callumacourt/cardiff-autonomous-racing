@@ -26,9 +26,11 @@ services:
       - docker/shared.env
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
     volumes:
       - ./logs:/workspace/logs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
       # mounting source code so code changes don't need a rebuild
       - ./perception_ws/src:/workspace/perception_ws/src:rw
       - ./best.pt:/workspace/perception_ws/models/best.pt:ro
@@ -103,10 +105,13 @@ services:
       - docker/shared.env
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
+      - TRACK_NAME=${TRACK_NAME:-small_track}
     networks:
       - racing_network
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
       - ./Control:/workspace/Control:rw
     stdin_open: true
     tty: true
