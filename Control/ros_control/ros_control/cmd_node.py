@@ -137,9 +137,11 @@ class CmdNode(Node):
         if self.eufs_sim_type == 1:
             # there is a bug where the rpm is always 500 less then reality
             self.current_state.wheels_rpm -= 500
+            steering*=-1
         elif self.eufs_sim_type == 2:
             # eufs sim 2 uses m/s rather than rpm in the msg, so convert
             self.current_state.wheels_rpm = self.current_state.wheels_rpm * 1/(2*np.pi*Vehicle_Constants.WHEEL_RADIUS_m) * 60
+            steering*=-1
         #EMA smoothing formula - rpm
         self.filtered_rpm = self.alpha * self.current_state.wheels_rpm + (1 - self.alpha) * self.filtered_rpm
         self.current_state.wheels_rpm = self.filtered_rpm
