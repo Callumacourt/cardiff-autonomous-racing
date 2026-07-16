@@ -3,9 +3,25 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 
+class Vehicle_Constants():
+    #milimetres
+    LENGTH = 2815
+    WIDTH = 1430
+    HEIGHT = 664
+    WHEELBASE = 1530
+    FRONT_TRACK = 1201
+    REAR_TRACK = 1201
+    #kilograms
+    WEIGHT = 300
+    WEIGHT_FRONT = 150
+    WEIGHT_REAR = 166
+    #radians
+    MAX_STEERING_ANGLE = 0.41999998688697815
+    WHEEL_RADIUS_m = 0.253
+
 
 class Vehicle_State():
-    def __init__(self,x_pos=0, y_pos=0, x_speed=0, y_speed=0, yaw_angle=0, yaw_rate=0):
+    def __init__(self,x_pos=0, y_pos=0, x_speed=0, y_speed=0, yaw_angle=0, yaw_rate=0, wheel_rpm=0,steering_angle_rad=0):
         # 2D position
         self.xpos = x_pos
         self.ypos = y_pos
@@ -16,6 +32,9 @@ class Vehicle_State():
 
         self.yaw_angle = yaw_angle
         self.yaw_rate = yaw_rate
+
+        self.wheels_rpm = wheel_rpm#current average rpm of all 4 wheels
+        self.steering_angle_rad = steering_angle_rad#current steering angle of wheels in radians (+ is left)
     
     def __str__(self):
         return f"X pos: {self.xpos}\nY pos: {self.ypos}\nDirectional velocity: {self.directional_velocity}\nPerpendicular velocity: {self.perpendicualar_velocity}\nYaw angle: {self.yaw_angle}\nYaw rate: {self.yaw_rate}"
@@ -23,8 +42,7 @@ class Vehicle_State():
 
 
 class Vehicle_Input():
-    def __init__(self, acceleration=0, deceleration=0, steering_angle=0):
-        self.deceleration = deceleration # brake
+    def __init__(self, acceleration=0, steering_angle=0):
         self.acceleration = acceleration # pedal
         self.steering_angle = steering_angle # steer
 
@@ -37,7 +55,7 @@ class Dynamics_Model():
         lf: distance from centre of gravity to front axel (m)
         lr: distance from centre of gravity to rear axel (m)
         yaw_inertia: lateral inertia of the vehicle (kgm^2)"""
-    def __init__(self, timestep:float=0.1, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500.0, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
+    def __init__(self, timestep:float=0.05, state:Vehicle_State = Vehicle_State(), input:Vehicle_Input = Vehicle_Input(), mass:float = 500.0, F_sideslip_stiffness:float = -100_000, R_sideslip_stiffness:float = -80_000,lf=0.7,lr=0.7,yaw_inertia:float = 1500,matPlotLib:bool=False):
         self.matPlotLib = matPlotLib
         self.state = state
         #self.input = input
@@ -67,8 +85,6 @@ class Dynamics_Model():
         if self.state.directional_velocity==0:
             self.state.directional_velocity=0.01
         result = self.F_sideslip_stiffness * ((self.state.perpendicualar_velocity + self.lf * self.state.yaw_rate)/self.state.directional_velocity - steering_angle)
-
-        self.state.directional_velocity = 0
         
         return result
 
@@ -94,6 +110,12 @@ class Dynamics_Model():
         next_state.perpendicualar_velocity = (self.mass*self.state.directional_velocity*self.state.perpendicualar_velocity + self.timestep*(self.lf*self.F_sideslip_stiffness - self.lr*self.R_sideslip_stiffness)*self.state.yaw_rate - self.timestep*self.F_sideslip_stiffness*input.steering_angle*self.state.directional_velocity - self.timestep*self.mass*self.state.directional_velocity*self.state.directional_velocity*self.state.yaw_rate)/(self.mass*self.state.directional_velocity - self.timestep*(self.F_sideslip_stiffness+self.R_sideslip_stiffness))
 
         next_state.yaw_rate = (self.yaw_inertia*self.state.directional_velocity*self.state.yaw_rate + self.timestep*(self.lf*self.F_sideslip_stiffness - self.lr*self.R_sideslip_stiffness)*self.state.perpendicualar_velocity - self.timestep*self.lf*self.F_sideslip_stiffness*input.steering_angle*self.state.directional_velocity)/(self.yaw_inertia*self.state.directional_velocity - self.timestep*(self.lf*self.lf*self.F_sideslip_stiffness + self.lr*self.lr*self.R_sideslip_stiffness))
+
+
+        next_state.wheels_rpm = (next_state.directional_velocity / 0.253) * 60
+
+        next_state.steering_angle_rad = input.steering_angle
+
 
         self.state = next_state
         self.timestep_count+=1

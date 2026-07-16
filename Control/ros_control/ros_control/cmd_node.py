@@ -7,7 +7,7 @@ import std_msgs
 import std_msgs.msg
 
 from eufs_msgs.msg import CanState, WheelSpeedsStamped
-from geometry_msgs.msg import TwistWithCovarianceStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped, Quaternion
 from sensor_msgs.msg import Imu,NavSatFix
 from nav_msgs.msg import Path, Odometry
 
@@ -17,17 +17,18 @@ import math
 import numpy as np
 
 #
-from MPC.main import Model_Predictive_Contol
-from model.vehical_model import Vehicle_Input, Vehicle_State
+from MPC.main import Model_Predictive_Control
+from model.vehical_model import Vehicle_Input, Vehicle_State, Vehicle_Constants
 
-class MinimalPublisher(Node):
+from mission_control import Mission_Control
+class CmdNode(Node):
 
     def __init__(self):
         super().__init__('ros_control')
 
-        self.declare_parameter("eufs_simulate",value=False)
-        self.eufs_sim = self.get_parameter("eufs_simulate").get_parameter_value().bool_value
-        self.get_logger().info(f"using eufs sim: {self.eufs_sim}")
+        self.declare_parameter("eufs_simulate",value=0)
+        self.eufs_sim_type = self.get_parameter("eufs_simulate").get_parameter_value().integer_value
+        self.get_logger().info(f"using eufs sim: {self.eufs_sim_type}")
 
         self.publisher_ = self.create_publisher(ackermann_msgs.msg.AckermannDriveStamped, 'cmd', 10)
         self.get_logger().info("cmd publisher started")
@@ -38,23 +39,22 @@ class MinimalPublisher(Node):
         self.timer_period = 0.01  # seconds
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.i = 0
+        self.alpha = 0.1  # smoothing factor for EMA, between 0 and 1
+        self.filtered_rpm = 0.0
+        self.filtered_steering_angle_rad = 0.0
 
         
-        self.as_state = 0#autonomous system state
-        self.ami_state = 0#autonomous mission indicator state
-        self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
-        self.wheels_rpm = 0#current average rpm of all 4 wheels
+        #self.steering_angle_rad = 0#current steering angle of wheels in radians (+ is left)
+        #self.wheels_rpm = 0#current average rpm of all 4 wheels
         self.WHEEL_RADIUS = 0.253
-        
-        self.static_A_flag = 0#flag that indicates the progress through the static inspection A mission
-        self.static_B_flag = 0#flag that indicates the progress through the static inspection B mission
-        self.autonomous_demo_flag = 0#flag that indicates the progress through the autonomous demonstration mission
-
-        self.time_at_event_start = 0
 
         #set up subscribers to get data from car
-        self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
-        self.get_logger().info("ros_can/state subscriber started")
+        if self.eufs_sim_type == 2:
+            self.can_state_sub = self.create_subscription(CanState,"sim/ros_can/state",self.can_state_callback,10)
+            self.get_logger().info("sim/ros_can/state subscriber started")
+        else:
+            self.can_state_sub = self.create_subscription(CanState,"ros_can/state",self.can_state_callback,10)
+            self.get_logger().info("ros_can/state subscriber started")
         self.wheel_speeds_sub = self.create_subscription(WheelSpeedsStamped,"ros_can/wheel_speeds",self.wheel_speeds_callback,10)
         self.get_logger().info("ros_can/wheel_speeds subscriber started")
         self.twist_sub = self.create_subscription(TwistWithCovarianceStamped,"ros_can/twist",self.twist_callback,10)
@@ -63,6 +63,9 @@ class MinimalPublisher(Node):
         self.get_logger().info("ros_can/imu subscriber started")
         self.nav_sub = self.create_subscription(NavSatFix,"ros_can/fix",self.nav_callback,10)
         self.get_logger().info("ros_can/fix (sat nav) subscriber started")
+
+        self.sim_state_sub = self.create_subscription(CanState,"sim/ros_can/state",self.can_state_callback,10)
+        self.get_logger().info("sim/ros_can/state subscriber started")
 
         #set up subscriber(s) to get data via path planning
         self.path = None
@@ -73,29 +76,40 @@ class MinimalPublisher(Node):
         self.odometry_sub = self.create_subscription(Odometry, "odometry/slam", self.odometry_callback, 10)
         self.get_logger().info("Odometry/slam subscription started")
 
+        #set up ebs client 
+        if self.eufs_sim_type == 2:
+            self.ebs_client = self.create_client(Trigger, "ebs")
+        else:
+            self.ebs_client = self.create_client(Trigger, "ros_can/ebs")
+
         self.current_state = Vehicle_State(x_pos=0.0, y_pos=0.0, yaw_angle=0.0, x_speed=0.0, y_speed=0.0, yaw_rate=0.0)
-        self.mpc_unit = Model_Predictive_Contol(self.timer_period,5.0)
         
         #self.mission_complete_pub = self.create_publisher(std_msgs.msg.Bool, 'ros_control/mission_complete', 10)
-        self.mission_complete = False
+
+        self.mission_controler = Mission_Control(mpc_unit=Model_Predictive_Control(self.timer_period,5.0),timer_period=self.timer_period,logger=self.get_logger,trigger_ebs=self.trigger_ebs)
 
         self.get_logger().info("Initialization complete")
-
-    def set_time_at_event_start(self,time):
-        if self.time_at_event_start == 0:
-            self.time_at_event_start = time
     
     def trigger_ebs(self):
-        client = self.create_client(Trigger,"/ros_can/ebs")
-        while not client.wait_for_service(timeout_sec=1.0):
+        #client = self.create_client(Trigger,"/ros_can/ebs")
+        while not self.ebs_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for /ros_can/ebs service...')
+        
         req = Trigger.Request()
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('EBS triggered successfully!')
-        else:
-            self.get_logger().error('Failed to trigger EBS!')
+        future = self.ebs_client.call_async(req)
+        future.add_done_callback(self.ebs_response_callback)
+        #rclpy.spin_until_future_complete(self, future)
+        
+    
+    def ebs_response_callback(self, future:rclpy.Future):
+        try:
+            result = future.result()
+            if result.success:
+                self.get_logger().info('EBS triggered successfully!')
+            else:
+                self.get_logger().error(f'Failed to trigger EBS! {result.message}')
+        except Exception as e:
+            self.get_logger().error(f"Service call failed {e}")
 
     def odometry_callback(self,msg:Odometry):
         self.set_current_state(odometry=msg)
@@ -106,8 +120,7 @@ class MinimalPublisher(Node):
 
     #called whenever a msg is recieved
     def can_state_callback(self, msg:CanState):
-        self.ami_state = msg.ami_state
-        self.as_state = msg.as_state
+        self.mission_controler.set_can_states(msg.ami_state,msg.as_state)
         self.get_logger().info(f'Recieved: AMI:{msg.ami_state}, AS:{msg.as_state}')
 
     def wheel_speeds_callback(self,msg:WheelSpeedsStamped):
@@ -120,12 +133,22 @@ class MinimalPublisher(Node):
         rf = wheels.rf_speed
         # in RADIANS
         steering = wheels.steering
-        self.wheels_rpm = (lb+lf+rb+rf)/4
-        if self.eufs_sim:
-            self.wheels_rpm -= 500
-        self.steering_angle_rad = steering
+        self.current_state.wheels_rpm = (lb+lf+rb+rf)/4
+        if self.eufs_sim_type == 1:
+            # there is a bug where the rpm is always 500 less then reality
+            self.current_state.wheels_rpm -= 500
+        elif self.eufs_sim_type == 2:
+            # eufs sim 2 uses m/s rather than rpm in the msg, so convert
+            self.current_state.wheels_rpm = self.current_state.wheels_rpm * 1/(2*np.pi*Vehicle_Constants.WHEEL_RADIUS_m) * 60
+        #EMA smoothing formula - rpm
+        self.filtered_rpm = self.alpha * self.current_state.wheels_rpm + (1 - self.alpha) * self.filtered_rpm
+        self.current_state.wheels_rpm = self.filtered_rpm
+        #EMA smoothing formula - steering rad
+        self.current_state.steering_angle_rad = steering
+        self.filtered_steering_angle_rad = self.alpha * self.current_state.steering_angle_rad + (1 - self.alpha) * self.filtered_steering_angle_rad
+        self.current_state.steering_angle_rad = self.filtered_steering_angle_rad
         #import pdb; pdb.set_trace()
-        self.get_logger().info(f"Recieved: Wheels_rpm: {self.wheels_rpm}, Steering_angle_rad: {self.steering_angle_rad}")
+        self.get_logger().info(f"Recieved: Wheels_rpm: {self.current_state.wheels_rpm}, Steering_angle_rad: {self.current_state.steering_angle_rad}")
         """self.current_state  = Vehicle_State(
             x_pos=0.0, # MPC will always assume
             y_pos=0.0, # ????
@@ -165,7 +188,7 @@ class MinimalPublisher(Node):
         status = msg.status
         pass
     
-    def get_yaw_from_quaternion(self,orientation):
+    def get_yaw_from_quaternion(self,orientation:Quaternion):
         """
         Returns the yaw (rotation around z) in radians from a geometry_msgs.msg.Quaternion
         """
@@ -204,12 +227,8 @@ class MinimalPublisher(Node):
             yaw_angle=yaw,
             yaw_rate=a_velocity.z
             )
-        self.mpc_unit.dynamics_model.set_state(state)
+        self.mission_controler.mpc_unit.dynamics_model.set_state(state)
 
-    def reset_mission_progress(self):
-        self.static_A_flag = 0
-        self.static_B_flag = 0
-        self.autonomous_demo_flag = 0
 
     #called periodically based on self.timer_period
     def timer_callback(self):
@@ -220,163 +239,19 @@ class MinimalPublisher(Node):
         msg.header = std_msgs.msg.Header()
         msg.drive = ackermann_msgs.msg.AckermannDrive()
 
-        msg.drive.acceleration = 0.0
-        msg.drive.steering_angle = 0.0
+        
         # THIS IS WHERE COMMANDS ARE SENT TO ROS_CAN
         #ros_can will then check to make sure the commands are valid, and that the car should be driving
         # before sending them to the car
         # the ackermanndrive msg has more parameters than the car uses, we currently only need to worry about 
         # acceleration and steering angle
 
-
-        self.get_logger().info(f'cmd loop')
-        self.get_logger().info(f'ami: {self.ami_state}')
-        self.get_logger().info(f'as: {self.as_state}')
-        if self.ami_state == CanState.AMI_ACCELERATION:#accelleration #1
-            self.get_logger().info(f'Acceleration')
-            if self.as_state == CanState.AS_DRIVING:# car is in AS_DRIVING #3
-                # msg.drive.speed=10.0    
-                self.get_logger().info("AS_Driving")
-
-                try:
-                    commands = self.mpc_unit.main(initial_state=self.current_state,required_path=self.path)#get required path from path planning, not sure where to get initial state from
-                    msg.drive.acceleration = commands.acceleration 
-                    msg.drive.steering_angle = commands.steering_angle
-                except Exception as e:
-                    if self.current_state.directional_velocity < 5.0 or self.wheels_rpm < 200:
-                        pass
-                msg.drive.acceleration = 1.0 # make sure these are floats
-                msg.drive.steering_angle = 0.0
-                self.get_logger().info(f'created accelleration command')
-                # msg.drive.steering_angle_velocity
-                # msg.drive.jerk
-                self.publisher_.publish(msg)
-                self.get_logger().info(f'Publishing: "{msg.drive}"')
-                #self.get_logger().info(f'Publishing: "{msg.drive}" \n & {msg.header}')
-            elif self.as_state == 2: # car is in AS_READY
-                msg.drive.acceleration = 0.0
-                msg.drive.steering_angle = 0.0
-                #msg.drive.steering_angle_velocity = 0
-        elif self.ami_state == CanState.AMI_DDT_INSPECTION_A: #static inspection A 
-            self.get_logger().info("Static inspection A")
-            if self.as_state == CanState.AS_DRIVING: #if driving (given go signal)
-                self.get_logger().info("AS_Driving")
-
-                msg.drive.acceleration = 0.0
-                #steer all the way one way
-                if self.static_A_flag == 0:
-                    self.get_logger().info("Sub task: Steer left")
-
-                    msg.drive.steering_angle = 0.5
-                    if self.steering_angle_rad >= 0.41:
-                        self.static_A_flag = 1
-                #steer all the way in the opposite direction
-                if self.static_A_flag == 1:
-                    self.get_logger().info("Sub task: Steer right")
-                    msg.drive.steering_angle = -0.5
-                    if self.steering_angle_rad <=-0.41:
-                        self.static_A_flag = 2
-                #steering back to centre
-                if self.static_A_flag == 2:
-                    self.get_logger().info("Sub task: Steer centre")
-                    msg.drive.steering_angle = 0.0
-                    if self.steering_angle_rad == 0.0:
-                        self.static_A_flag = 3
-                #wheels to 200rpm
-                if self.static_A_flag == 3:
-                    self.get_logger().info("Sub task: Accelerate to 200rpm")
-                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
-                    if self.wheels_rpm < 200.0:
-                        msg.drive.acceleration = 2.0
-                    else:
-                        self.static_A_flag = 4
-                #stop car
-                if self.static_A_flag == 4:
-                    self.get_logger().info("Sub task: Brake to zero")
-                    self.get_logger().info(f"Current RPM: {self.wheels_rpm}")
-
-                    msg.drive.acceleration = -4.0
-                    if self.wheels_rpm <= 0.1:
-                        self.static_A_flag = 5
-                # set AS_FINISHED
-                if self.static_A_flag == 5 and not self.mission_complete:
-                    #set mission complete
-                    self.mission_complete = True
-                    self.static_A_flag = 0
-                    #self.get_logger().info("Mission complete published!")
-                
-                self.publisher_.publish(msg)     
-        elif self.ami_state == CanState.AMI_DDT_INSPECTION_B: #static inspection B
-            self.get_logger().info("static inpection B")
-            if self.as_state == CanState.AS_DRIVING:
-                self.get_logger().info("AS_Driving")
-
-                if self.static_B_flag == 0:
-                    self.get_logger().info("Sub task: accelerate to 50rpm")
-                    if self.wheels_rpm < 50.0:
-                        msg.drive.acceleration = 20.0
-                    else:
-                        self.static_B_flag = 1
-                    self.publisher_.publish(msg)
-                if self.static_B_flag == 1:
-                    self.trigger_ebs()
-                    self.static_B_flag = 0
-        elif self.ami_state == CanState.AMI_AUTONOMOUS_DEMO: #autonomous demo
-            self.get_logger().info("Autonomous demo")
-            if self.as_state == CanState.AS_DRIVING:
-                self.get_logger().info("AS_Driving")
-
-                #steering left and right and return to straight
-                if self.autonomous_demo_flag == 0:
-                    self.get_logger().info("Sub task: steering left")
-                    msg.drive.steering_angle = 0.5
-                    if self.steering_angle_rad >= 0.41:
-                        self.autonomous_demo_flag = 1
-                if self.autonomous_demo_flag == 1:
-                    self.get_logger().info("Sub task: steering right")
-                    msg.drive.steering_angle = -0.5
-                    if self.steering_angle_rad <= -0.41:
-                        self.autonomous_demo_flag = 2
-                if self.autonomous_demo_flag == 2:
-                    self.get_logger().info("Sub task: Steer centre")
-                    msg.drive.steering_angle = 0.0
-                    if self.steering_angle_rad == 0.0:
-                        self.autonomous_demo_flag = 3
-                #accellerate for 10m to at least 15kph
-                if self.autonomous_demo_flag == 3: # THIS DOES NOT CURRENTLY WORK (distance check is always true)
-                    self.set_time_at_event_start(self.i)
-                    self.get_logger().info("Sub task: accelleration for 10m")
-                    msg.drive.acceleration = 2.0
-                    #check if 10m have passed using suvat
-                    if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
-                        self.autonomous_demo_flag = 4
-                #stop within a furthur 10m
-                if self.autonomous_demo_flag == 4:
-                    self.get_logger().info("Sub task: break to stop")
-                    msg.drive.acceleration = -2.0
-                    if self.wheels_rpm == 0.0:
-                        self.autonomous_demo_flag = 5
-                        self.time_at_event_start = 0 #ONLY DO THIS IN BITS OF CODE NOT IN A LOOP, otherwise your timer will be continually reset
-                #accellerate for a furthur 10m to at least 15kph
-                if self.autonomous_demo_flag == 5:
-                    self.set_time_at_event_start(self.i)
-                    self.get_logger().info("Sub task: Accelerate a further 10m")
-                    msg.drive.acceleration = 2.0
-                    #check if 10m have passed using suvat
-                    if 0.5 * 2.0 * (((self.i-self.time_at_event_start)/self.timer_period)**2) >= 10:
-                        self.autonomous_demo_flag = 6
-                        self.time_at_event_start = 0
-                #deploy ebs
-                if self.autonomous_demo_flag == 6:
-                    self.trigger_ebs()
-                    self.autonomous_demo_flag = 0
-                else:
-                    self.publisher_.publish(msg)
-        #else:
-        #    self.reset_mission_progress()
+        msg.drive.acceleration, msg.drive.steering_angle = self.mission_controler.get_message(self.current_state,self.path)
+        
+        self.publisher_.publish(msg)
 
         mission_msg = std_msgs.msg.Bool()
-        mission_msg.data = self.mission_complete
+        mission_msg.data = self.mission_controler.get_mission_complete()
 
         driving_flag_msg = std_msgs.msg.Bool()
         driving_flag_msg.data = True
@@ -389,7 +264,7 @@ class MinimalPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_publisher = MinimalPublisher()
+    minimal_publisher = CmdNode()
 
     rclpy.spin(minimal_publisher)
 
