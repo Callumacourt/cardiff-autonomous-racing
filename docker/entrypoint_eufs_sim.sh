@@ -12,7 +12,7 @@ if [ $eufs_simulate = 1 ]; then
     # vs launch_group:=no_perception which uses abstract cone detection
     ros2 launch eufs_launcher simulation.launch.py \
         use_sim_time:=true \
-        track:=small_track \
+        track:=${TRACK_NAME:-small_track} \
         robot_name:=ads-dv \
         rviz:=true \
         launch_group:=default \
