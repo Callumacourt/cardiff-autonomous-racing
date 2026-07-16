@@ -3,8 +3,7 @@
 ##  Overview
 
 This repository contains a fully containerized autonomous racing system with three main components:
-- **Mock Data Publishers**: Simulates car pose and cone detection data
-- **Perception System**: Processes cone data and creates local maps
+- **Perception System**: Camera-based cone detection, EKF-SLAM localisation, and cone mapping
 - **Path Planning System**: Generates optimal racing paths using RRT* algorithm
 - **Control system**: Generates inputs for the car to follow
 
@@ -93,18 +92,14 @@ If on windows, run from within wsl.
 
 ## System Components
 
-### Mock Data Publisher (`racing_mock`)
-- **Purpose**: Provides simulated sensor data for testing
-- **Publishes**:
-  - `/car_pose`: Current vehicle position and orientation
-  - `/cone_map/local`: Simulated cone positions (blue/yellow racing cones)
-- **Data**: Generates realistic racing track data with moving car position
-
 ### Perception System (`racing_perception`)
-- **Purpose**: Processes incoming cone data and creates environmental maps
-- **Subscribes**: Cone detection data
-- **Publishes**: Processed cone maps for path planning
-- **Features**: Advanced cone mapping and filtering
+- **Purpose**: Camera-based cone detection, localisation, and cone mapping
+- **Nodes**: `cone_detector` (YOLOv8 + depth), `landmark_slam` (EKF-SLAM),
+  `cone_mapper` (builds the track map)
+- **Publishes**: `/odometry/slam` (car pose), `/cone_map/local` +
+  `/cone_map/global` (cone positions)
+- **Details**: see [`../perception_ws/README.md`](../perception_ws/README.md)
+  and [`../PERCEPTION_FORMAT.md`](../PERCEPTION_FORMAT.md)
 
 ### Path Planning System (`racing_planning`)
 - **Purpose**: Generates optimal racing paths using RRT* algorithm
