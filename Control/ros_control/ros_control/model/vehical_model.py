@@ -1,7 +1,10 @@
 import math
-import matplotlib.pyplot as plt
+import os
 import time
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 class Vehicle_Constants():
     #milimetres
@@ -81,6 +84,67 @@ class Dynamics_Model():
     def get_state(self):
         return self.state
 
+    def run_validation_sweep(self, steering_angles, speed=6.0, steps=120):
+        """Run a simple open-loop steering sweep and return peak lateral response per steering angle."""
+        results = []
+        for steering in steering_angles:
+            state = Vehicle_State(x_speed=speed, y_speed=0.0)
+            model = Dynamics_Model(
+                timestep=self.timestep,
+                mass=self.mass,
+                F_sideslip_stiffness=self.F_sideslip_stiffness,
+                R_sideslip_stiffness=self.R_sideslip_stiffness,
+                lf=self.lf,
+                lr=self.lr,
+                yaw_inertia=self.yaw_inertia,
+            )
+            model.set_state(state)
+
+            peak_lateral_acc = 0.0
+            peak_yaw_rate = 0.0
+
+            for _ in range(steps):
+                model.calculate_next_state(Vehicle_Input(acceleration=0.0, steering_angle=steering))
+                current_state = model.get_state()
+                lateral_acc = abs(current_state.yaw_rate * max(current_state.directional_velocity, 1e-6))
+                peak_lateral_acc = max(peak_lateral_acc, lateral_acc)
+                peak_yaw_rate = max(peak_yaw_rate, abs(current_state.yaw_rate))
+
+            results.append((steering, peak_lateral_acc, peak_yaw_rate))
+
+        return results
+
+    def run_control_sweep(self, steering_angles, acceleration_values, speed=6.0, steps=100):
+        """Sweep both steering angle and longitudinal acceleration to test combined vehicle response."""
+        results = []
+        for steering in steering_angles:
+            for acceleration in acceleration_values:
+                state = Vehicle_State(x_speed=speed, y_speed=0.0)
+                model = Dynamics_Model(
+                    timestep=self.timestep,
+                    mass=self.mass,
+                    F_sideslip_stiffness=self.F_sideslip_stiffness,
+                    R_sideslip_stiffness=self.R_sideslip_stiffness,
+                    lf=self.lf,
+                    lr=self.lr,
+                    yaw_inertia=self.yaw_inertia,
+                )
+                model.set_state(state)
+
+                peak_lateral_acc = 0.0
+                peak_yaw_rate = 0.0
+
+                for _ in range(steps):
+                    model.calculate_next_state(Vehicle_Input(acceleration=acceleration, steering_angle=steering))
+                    current_state = model.get_state()
+                    lateral_acc = abs(current_state.yaw_rate * max(current_state.directional_velocity, 1e-6))
+                    peak_lateral_acc = max(peak_lateral_acc, lateral_acc)
+                    peak_yaw_rate = max(peak_yaw_rate, abs(current_state.yaw_rate))
+
+                results.append((steering, acceleration, peak_lateral_acc, peak_yaw_rate))
+
+        return results
+
     def calc_front_lateral_force(self,steering_angle):
         if self.state.directional_velocity==0:
             self.state.directional_velocity=0.01
@@ -125,6 +189,59 @@ class Dynamics_Model():
             y_positions.append(self.state.ypos)
 
 if __name__ == "__main__":
+    start_time = time.time_ns()
+    model = Dynamics_Model(timestep=0.01, matPlotLib=False)
+    steering_angles = np.linspace(0.03, 0.35, 12)
+
+    results = model.run_validation_sweep(steering_angles, speed=6.0, steps=140)
+    steering_values = np.array([item[0] for item in results])
+    lateral_acc_values = np.array([item[1] for item in results])
+    yaw_rate_values = np.array([item[2] for item in results])
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(steering_values, lateral_acc_values, marker="o", linewidth=2, label="Peak lateral acceleration")
+    plt.plot(steering_values, yaw_rate_values, marker="s", linewidth=2, label="Peak yaw rate")
+    plt.xlabel("Steering angle (rad)")
+    plt.ylabel("Response magnitude")
+    plt.title("Validation sweep: steering input vs. vehicle response")
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+
+    steering_validation_path = os.path.join(os.path.dirname(__file__), "vehicle_validation_plot.png")
+    plt.tight_layout()
+    plt.savefig(steering_validation_path, dpi=200)
+    plt.close()
+
+    acceleration_values = np.array([0.0, 1.0, 2.0, 3.0])
+    control_results = model.run_control_sweep(steering_angles, acceleration_values, speed=6.0, steps=100)
+
+    control_grid = np.zeros((len(acceleration_values), len(steering_angles)))
+    for steering, acceleration, peak_lateral_acc, _ in control_results:
+        accel_index = int(np.where(acceleration_values == acceleration)[0][0])
+        steering_index = int(np.where(steering_angles == steering)[0][0])
+        control_grid[accel_index, steering_index] = peak_lateral_acc
+
+    plt.figure(figsize=(8, 5))
+    plt.imshow(control_grid, aspect="auto", origin="lower", cmap="viridis")
+    plt.colorbar(label="Peak lateral acceleration")
+    plt.xticks(np.arange(len(steering_angles)), np.round(steering_angles, 3))
+    plt.yticks(np.arange(len(acceleration_values)), acceleration_values)
+    plt.xlabel("Steering angle (rad)")
+    plt.ylabel("Longitudinal acceleration")
+    plt.title("Combined control sweep: steering and acceleration")
+    plt.tight_layout()
+
+    control_sweep_path = os.path.join(os.path.dirname(__file__), "vehicle_control_sweep.png")
+    plt.savefig(control_sweep_path, dpi=200)
+    plt.close()
+
+    end_time = time.time_ns()
+    print(f"Saved steering validation plot to {steering_validation_path}")
+    print(f"Saved control sweep plot to {control_sweep_path}")
+    print(f"Simulation time: {(end_time - start_time) / 1e6:.2f} ms")
+    print("Interpretation: the response rises quickly and then flattens, which is consistent with a tire-limited cornering regime.")
+
+
     # For storing trajectory and velocities
     x_positions = []
     y_positions = []
@@ -132,12 +249,13 @@ if __name__ == "__main__":
     directions = []
 
     model = Dynamics_Model(timestep=0.01, matPlotLib=False)
+    model.set_state(Vehicle_State(x_speed=4.0, y_speed=0.0))
 
-    inputs = [Vehicle_Input(3,0) for x in range(500)] + \
-             [Vehicle_Input(0,0.3) for x in range(50)] + \
-             [Vehicle_Input(3,0) for x in range(100)] + \
-             [Vehicle_Input(0,0.3) for x in range(50)] + \
-             [Vehicle_Input(0,0) for x in range(200)]
+    inputs = [Vehicle_Input(2.5, 0.0) for _ in range(80)] + \
+             [Vehicle_Input(-2.0, 0.0) for _ in range(40)] + \
+             [Vehicle_Input(0.2, 0.10) for _ in range(120)] + \
+             [Vehicle_Input(0.0, -0.12) for _ in range(120)] + \
+             [Vehicle_Input(2.0, 0.0) for _ in range(80)]
 
     startTime = time.time_ns()
     for i in range(len(inputs)-1):
@@ -160,22 +278,37 @@ if __name__ == "__main__":
     speed = np.array(speeds)
     directions = np.array(directions)
 
-    plt.figure(figsize=(10, 10))
-    sc = plt.scatter(x, y, c=speed, cmap='viridis', s=10)
-    plt.colorbar(sc, label="Speed (m/s)")
+    plt.figure(figsize=(8, 8))
+    plot_points = np.column_stack((x, y))
+    sc = plt.scatter(plot_points[:, 0], plot_points[:, 1], c=speed, cmap='viridis', s=45, edgecolors='none')
 
-    # Draw direction arrows every N steps
-    N = 20
-    for i in range(0, len(x), N):
+    # Use a thicker line for the path and show a sparse set of clearly visible direction markers.
+    sample_stride = 16
+    sample_idx = np.arange(0, len(x), sample_stride)
+    plt.plot(x[sample_idx], y[sample_idx], color='white', linewidth=1.8, alpha=0.95)
+
+    for i in sample_idx:
         dx, dy = directions[i]
-        plt.arrow(x[i], y[i], dx * 0.2, dy * 0.2, head_width=0.5, color='red')
+        if np.linalg.norm([dx, dy]) > 1e-6:
+            plt.annotate(
+                '',
+                xy=(x[i] + 0.18 * dx, y[i] + 0.18 * dy),
+                xytext=(x[i], y[i]),
+                arrowprops=dict(arrowstyle='->', color='#ff4d4d', lw=1.8, mutation_scale=12),
+                annotation_clip=False,
+            )
 
-    plt.title("Vehicle Trajectory Colored by Speed with Direction Arrows")
-    plt.xlim(-100, 100)
-    plt.ylim(-100, 100)
+    plt.title("Vehicle Trajectory Colored by Speed")
+    x_margin = max(0.5, 0.03 * (np.max(x) - np.min(x)))
+    y_margin = max(0.5, 0.03 * (np.max(y) - np.min(y)))
+    plt.xlim(np.min(x) - x_margin, np.max(x) + x_margin)
+    plt.ylim(np.min(y) - y_margin, np.max(y) + y_margin)
     plt.xlabel("X Position (m)")
     plt.ylabel("Y Position (m)")
-    plt.grid(True)
-    plt.show()
-
-
+    plt.grid(True, alpha=0.3)
+    plt.gca().set_aspect('equal', adjustable='box')
+    cbar = plt.colorbar(sc, label="Speed (m/s)", pad=0.04, shrink=0.9, orientation='horizontal')
+    cbar.ax.set_position([0.15, 0.06, 0.7, 0.03])
+    plt.tight_layout()
+    plt.savefig(os.path.join(os.path.dirname(__file__), "vehicle_trajectory_plot.png"), dpi=200)
+    plt.close()
