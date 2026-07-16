@@ -1,3 +1,6 @@
 [submodule "FS-AI-API"]
 	path = Control/ros_can/FS-AI-API
 	url = https://github.com/FS-AI/FS-AI_API
+[submodule "Path_Planning/tum_optimizer"]
+	path = Path_Planning/tum_optimizer
+	url = https://github.com/TUMFTM/global_racetrajectory_optimization

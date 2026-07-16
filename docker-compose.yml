@@ -1,28 +1,4 @@
 services:
-  # Mock data for testing
-  #mock_data:
-  #  build:
-  #    context: .
-#      dockerfile: docker/Dockerfile.planning
-#    container_name: racing_mock
- #   environment:
-  #    - ROS_DOMAIN_ID=0
-   #   - PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages
-    #volumes:
-    #  - ./test_data:/workspace/test_data
-    #networks:
-    #  - racing_network
-    #entrypoint: ""
-    #command: >
-    #  bash -c "
-    #  source /opt/ros/humble/setup.bash &&
-    #  echo ' Starting mock data publishers...' &&
-    #  cd /workspace/test_data &&
-    #  python3 test_cone_published.py &
-    #  python3 mock_pose_publisher.py &
-    #  echo 'Publishers started, keeping container alive...' &&
-    #  sleep infinity
-    #  "
 
   base:
     build:
@@ -50,9 +26,14 @@ services:
       - docker/shared.env
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
     volumes:
       - ./logs:/workspace/logs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
+      # mounting source code so code changes don't need a rebuild
+      - ./perception_ws/src:/workspace/perception_ws/src:rw
+      - ./best.pt:/workspace/perception_ws/models/best.pt:ro
     networks:
       - racing_network
     stdin_open: true
@@ -60,8 +41,13 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: >
       bash -c "
-      echo ' Perception ready. Start nodes manually or run: ros2 run cone_detector cone_detector_node' &&
+<<<<<<< HEAD
+      echo 'Perception ready. Start nodes manually or run: ros2 run cone_detector YOLO_cone_detector' &&
       tail -f /dev/null
+=======
+      echo '👁️ Starting YOLO cone detector...' &&
+      ros2 run cone_detector cone_detector_node
+>>>>>>> path-planning-development
       "
 
   # Path planning
@@ -124,10 +110,18 @@ services:
       - docker/shared.env
     environment:
       - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
+      - TRACK_NAME=${TRACK_NAME:-small_track}
     networks:
       - racing_network
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+<<<<<<< HEAD
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
+      - ./Control:/workspace/Control:rw
+=======
+      - ./config/racing_visualization.rviz:/workspace/racing.rviz:ro
+>>>>>>> path-planning-development
     stdin_open: true
     tty: true
 
