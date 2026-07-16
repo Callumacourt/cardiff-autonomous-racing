@@ -157,6 +157,18 @@ else
   echo "  camera up"
 fi
 
+# depth/camera_info are only used as detector params (never checked by the
+# launch-wait above) — a wrong name here doesn't fail loudly, it just leaves
+# /cone_cloud/local silently empty. Check both explicitly so a mismatch is
+# caught now, not read as "detector just needs a moment" in the health check.
+sleep 2
+for t in "$DEPTH_TOPIC:DEPTH_TOPIC" "$CAMERA_INFO_TOPIC:CAMERA_INFO_TOPIC"; do
+  topic="${t%%:*}"; var="${t##*:}"
+  topic_up "$topic" \
+    || die "$var ('$topic') is not being published — run 'ros2 topic list | grep zed' and fix $var near the top of this script"
+done
+echo "  depth + camera_info topics confirmed"
+
 # ---------------------------------------------------------------------------
 # 6. Launch perception (ON_CAR_SETUP.md step 7C)
 # ---------------------------------------------------------------------------
