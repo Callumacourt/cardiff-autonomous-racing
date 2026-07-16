@@ -1,11 +1,7 @@
 # ROS2 build artifacts
 build/
-build_slam_example/
 install/
-install_slam_example/
 log/
-log_local/
-log_slam_example/
 
 # Python cache
 *.pyc
