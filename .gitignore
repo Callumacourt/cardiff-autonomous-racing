@@ -1,7 +1,189 @@
+# ROS2 / Colcon Build Artifacts
 build/
 install/
 log/
+<<<<<<< HEAD
 logs/
 .vscode/
 Control/logs/
 presentation_graphics
+=======
+*.bag
+*.bag.active
+*.db3
+*.db3-shm
+*.db3-wal
+
+# Python
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytype static type analyzer
+.pytype/
+
+# C++ / CMake
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE / Editor Files
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+*.bak
+*.tmp
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Docker
+# Docker volumes and temp files
+.docker/
+docker-compose.override.yml
+
+# Training outputs
+runs/
+wandb/
+checkpoints/
+*.tensorboard
+
+# Temporary / Cache Files
+*.cache
+.cache/
+*.pid
+*.seed
+*.pid.lock
+
+# OS Generated Files
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Backup Files
+*.backup
+*.old
+*.orig
+*.rej
+
+# Project Specific
+# Test data outputs
+test_data/output/
+test_results/
+
+# Perception outputs
+perception_ws/install/
+perception_ws/build/
+perception_ws/log/
+
+# Path planning outputs
+Path_Planning/build/
+Path_Planning/install/
+Path_Planning/log/
+
+# Control outputs
+Control/build/
+Control/install/
+Control/log/
+
+# Documentation Build Artifacts
+docs/_build/
+docs/.doctrees/
+*.pdf
+!*.Tutorial.pdf
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+*.env
+!shared.env
+
+# Misc
+scratch/
+temp/
+tmp/
+>>>>>>> path-planning-development

@@ -15,6 +15,7 @@ if [ $eufs_simulate = 1 ]; then
         track:=${TRACK_NAME:-small_track} \
         robot_name:=ads-dv \
         rviz:=true \
+        rviz_config:=/workspace/racing.rviz \
         launch_group:=default \
         gazebo_gui:=false \
         publish_gt_tf:=false \

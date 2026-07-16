@@ -83,8 +83,17 @@ closes the gap: it drives the regulation figure-8 with pure pursuit off
 EUFS sim or on the car.**
 
 **Assumptions to confirm on the day** (parameters in launch_skidpad_car.sh):
+<<<<<<< HEAD
 - `entry_length` (staged position → circle crossing, default 15 m) — pace it out.
 - `exit_length` (crossing → stop zone, default 25 m).
+=======
+- `entry_length` (SLAM reference point → circle crossing, default 15 m) — pace
+  it out; rules stage the *foremost part* 15 m before the line (D4.3.3), so
+  add the nose-to-reference distance.
+- `exit_length` (crossing → intended stop point, default 20 m). Rules D4.3.6:
+  full stop within 25 m or Unsafe Stop = DNF; selftest overshoots ~0.9 m, so
+  keep ≤20 for margin.
+>>>>>>> path-planning-development
 - Car staged on the entry centreline pointing at the crossing — the path is
   anchored to the SLAM pose/heading at the go signal, so a 5° heading error
   displaces the far side of each circle by ~1.6 m. Stage carefully.

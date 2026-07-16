@@ -15,7 +15,7 @@ def generate_launch_description():
         # Start path planner
         Node(
             package='path_planning',  
-            executable='integration',
+            executable='path_planner',  # Changed from 'integration' to 'path_planner'
             name='path_planner_node',
             output='screen'
         ),
