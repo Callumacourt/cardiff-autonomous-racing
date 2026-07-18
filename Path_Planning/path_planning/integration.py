@@ -1,317 +1,266 @@
 #!/usr/bin/env python3
 """
 Path Planning Integration Node
+
+Consumes perception's outputs (see PERCEPTION_FORMAT.md):
+    /odometry/slam   nav_msgs/Odometry   car pose in the map frame
+    /cone_map/local  std_msgs/String     CSV "x,y,z,color,confidence" per line,
+                                         positions in the map frame
+Publishes:
+    /planned_path    nav_msgs/Path       ordered centerline in the map frame,
+                                         starting at the car and running forward
+
+Color IDs: 0 = blue (left boundary), 1 = yellow (right boundary),
+           2 = orange (ignored for boundaries), 3 = unknown (ignored).
+
+The TUM optimizer is optional (needs trajectory_planning_helpers); when it is
+not installed the node publishes the paired-midpoint centerline, which is
+enough for pure-pursuit control to lap the track.
 """
+
+import math
 
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
-from nav_msgs.msg import Path
-from typing import List, Tuple
-import message_filters
+from nav_msgs.msg import Odometry, Path
+
+try:
+    from path_planning.tum_wrapper import TUMTrajectoryOptimizer, TUM_AVAILABLE
+except ImportError:
+    try:
+        from tum_wrapper import TUMTrajectoryOptimizer, TUM_AVAILABLE
+    except ImportError:
+        TUMTrajectoryOptimizer, TUM_AVAILABLE = None, False
+
+# Max distance between consecutive same-colour cones when chaining a boundary.
+# EUFS/FS cones on one side are ~5 m apart; anything further is another part
+# of the track (e.g. the opposite side of a hairpin).
+CHAIN_BREAK_DIST = 7.0
+# Max blue-to-yellow distance for a valid midpoint pair (track width ~3-5 m).
+MAX_PAIR_DIST = 7.0
+# Half of assumed track width, used when only one boundary is visible.
+HALF_TRACK_WIDTH = 1.75
+# Ignore cones further than this from the car: the local buffer can retain
+# stale far-away cones and distant clusters confuse the chaining.
+MAX_CONE_RANGE = 25.0
+# Cones slightly behind the car still matter for the first midpoint.
+BEHIND_TOLERANCE = 3.0
+
+
+def yaw_from_quaternion(q):
+    return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
+                      1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+
+def chain_from(points, start, heading=None, break_dist=CHAIN_BREAK_DIST):
+    """Order points by nearest-neighbour walking, starting near `start`.
+
+    If `heading` is given the first step is constrained to the forward
+    half-plane so the chain runs the same way the car is pointing.
+    """
+    if not points:
+        return []
+    remaining = list(points)
+    first = min(remaining, key=lambda p: (p[0] - start[0]) ** 2 + (p[1] - start[1]) ** 2)
+    remaining.remove(first)
+    chain = [first]
+    while remaining:
+        cx, cy = chain[-1]
+        if heading is not None and len(chain) == 1:
+            hx, hy = math.cos(heading), math.sin(heading)
+            forward = [p for p in remaining if (p[0] - cx) * hx + (p[1] - cy) * hy > 0.0]
+            candidates = forward if forward else remaining
+        else:
+            candidates = remaining
+        nxt = min(candidates, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
+        if math.hypot(nxt[0] - cx, nxt[1] - cy) > break_dist:
+            break
+        remaining.remove(nxt)
+        chain.append(nxt)
+    return chain
+
 
 class PathPlannerNode(Node):
     def __init__(self):
         super().__init__('path_planner')
-        
-        self.current_pose = (0.0, 0.0)
-        self.left_cones = []
-        self.right_cones = []
-        self.orange_cones = []
+
+        self.declare_parameter('use_tum', False)
+        self.use_tum = self.get_parameter('use_tum').get_parameter_value().bool_value
+
+        self.pose = None          # (x, y, yaw) in map frame
+        self.left_cones = []      # blue
+        self.right_cones = []     # yellow
+        self.centerline = []
         self.optimized_trajectory = None
-        
-        # Initialize TUM optimizer
-        self.tum_optimizer = TUMTrajectoryOptimizer(
-            vehicle_width=1.5,
-            vehicle_length=2.5
-        ) if TUM_AVAILABLE else None
-        
-        # Subscribe to car pose and sync with cone detections
-        pose_sub = message_filters.Subscriber(self, PoseStamped, '/car_pose')
-        cones_sub = message_filters.Subscriber(self, String, '/detected_cones')
-        
-        ts = message_filters.TimeSynchronizer([pose_sub, cones_sub], queue_size=10)
-        ts.registerCallback(self.synchronized_callback)
-        
-        # Publisher
+
+        self.tum_optimizer = None
+        if self.use_tum and TUM_AVAILABLE:
+            self.tum_optimizer = TUMTrajectoryOptimizer(vehicle_width=1.5,
+                                                        vehicle_length=2.5)
+        elif self.use_tum:
+            self.get_logger().warning(
+                'use_tum requested but trajectory_planning_helpers is not '
+                'installed — publishing plain centerline')
+
+        self.create_subscription(Odometry, '/odometry/slam', self.odom_callback, 10)
+        self.create_subscription(String, '/cone_map/local', self.cones_callback, 10)
         self.path_pub = self.create_publisher(Path, '/planned_path', 10)
-        
-        # Timer (5 Hz)
-        self.timer = self.create_timer(0.2, self.main_loop)
-        
-        # Statistics
-        self.detection_count = 0
-        self.last_detection_time = self.get_clock().now()
-        
-        self.get_logger().info('Path Planner Node initialized')
-    
-    def synchronized_callback(self, pose_msg, cones_msg):
-        """Handle synchronized pose and cone detection messages"""
-        self.pose_callback(pose_msg)
-        self.yolo_cones_callback(cones_msg)
-    
-    def yolo_cones_callback(self, msg):
-        """
-        Parse cone data directly from YOLO detector
-        Message format: "x,y,z,label" per line
-        
-        Label mapping (from YOLO_cone_detector.py):
-        0 = blue cone (left boundary)
-        1 = yellow cone (right boundary)  
-        2 = orange cone (special markers/boundaries)
-        3 = unknown cone
-        -1 = invalid
-        """
-        # Log raw message for debugging
-        self.get_logger().debug(f'Received cone data: {msg.data[:100]}...')
-        
-        # Clear previous detections for fresh update
-        self.left_cones = []
-        self.right_cones = []
-        self.orange_cones = []
-        
-        if not msg.data.strip():
-            self.get_logger().warning('Received empty cone detection message')
-            return
-        
-        lines = msg.data.strip().split('\n')
 
-        for line in lines:
+        self.timer = self.create_timer(0.2, self.main_loop)  # 5 Hz
+        self.plan_count = 0
+        self.get_logger().info('Path Planner Node initialized '
+                               f'(TUM optimizer: {self.tum_optimizer is not None})')
+
+    # ------------------------------------------------------------------
+    # Inputs
+    # ------------------------------------------------------------------
+
+    def odom_callback(self, msg: Odometry):
+        p = msg.pose.pose.position
+        self.pose = (p.x, p.y, yaw_from_quaternion(msg.pose.pose.orientation))
+
+    def cones_callback(self, msg: String):
+        """Parse /cone_map/local CSV: x,y,z,color,confidence per line."""
+        left, right = [], []
+        for line in msg.data.strip().split('\n'):
             parts = line.strip().split(',')
-            if len(parts) >= 4:
-                try:
-                    x, y, _, label = map(float, parts[:4])
-                    label = int(label)
+            if len(parts) < 4:
+                continue
+            try:
+                x, y = float(parts[0]), float(parts[1])
+                color = int(float(parts[3]))
+            except ValueError:
+                continue
+            if color == 0:
+                left.append((x, y))
+            elif color == 1:
+                right.append((x, y))
+            # orange (2) / unknown (3): not track boundaries
+        self.left_cones = left
+        self.right_cones = right
 
-                    # Filter out invalid and unknown cones
-                    if label < 0 or label == 3:
-                        continue
+    # ------------------------------------------------------------------
+    # Planning
+    # ------------------------------------------------------------------
 
-                    # Categorize by label
-                    if label == 0:  # Blue cone (left boundary)
-                        self.left_cones.append((x, y))
-
-                    elif label == 1:  # Yellow cone (right boundary)
-                        self.right_cones.append((x, y))
-
-                    elif label == 2:  # Orange cone (special marker)
-                        self.orange_cones.append((x, y))
-                        # Decide how to handle orange cones based on your track rules
-                        # Option A: Treat as obstacles (add to both boundaries)
-                        # Option B: Ignore them
-                        # Option C: Special handling for start/finish line
-                        # For now, storing separately for flexibility
-                    
-                except (ValueError, IndexError) as e:
-                    self.get_logger().warning(f'Failed to parse cone line: "{line}" - {e}')
-                    continue
-        
-        # Update statistics
-        self.detection_count += 1
-        current_time = self.get_clock().now()
-        time_diff = (current_time - self.last_detection_time).nanoseconds / 1e9
-        
-        # Always log basic stats, detailed every 10 detections
-        if self.detection_count % 10 == 0 or time_diff > 2.0:
-            self.get_logger().info(
-                f'✅ YOLO Detections #{self.detection_count}: '
-                f'{len(self.left_cones)} blue, '
-                f'{len(self.right_cones)} yellow, '
-                f'{len(self.orange_cones)} orange | '
-                f'Valid: {valid_detections} cones'
-            )
-            self.last_detection_time = current_time
-        
-        # Log first few detections in detail for verification
-        if self.detection_count <= 3:
-            self.get_logger().info(
-                f'🔍 First detections - Blue cones: {self.left_cones[:3]}, '
-                f'Yellow cones: {self.right_cones[:3]}'
-            )
-        
-        # Update centerline when we have sufficient cone data
-        if len(self.left_cones) > 0 or len(self.right_cones) > 0:
-            self.generate_centerline()
-            
-            # Run TUM optimization if available and enough cones
-            if self.tum_optimizer and len(self.left_cones) >= 5 and len(self.right_cones) >= 5:
-                self.optimize_trajectory_tum()
-    
-    def optimize_trajectory_tum(self):
-        """Use TUM optimizer to generate optimal racing line"""
-        try:
-            self.get_logger().info(
-                f'🚀 Starting TUM optimization with {len(self.left_cones)} blue, '
-                f'{len(self.right_cones)} yellow cones'
-            )
-            
-            # Convert cones to TUM reference track format
-            reftrack = self.tum_optimizer.cones_to_reftrack(
-                self.left_cones,
-                self.right_cones,
-                min_points=5
-            )
-            
-            if reftrack is not None:
-                self.get_logger().info(f'📊 Generated reftrack with {len(reftrack)} points')
-                
-                # Run optimization (use 'mincurv' for minimum curvature)
-                # Options: 'shortest_path', 'mincurv', or 'mintime'
-                trajectory = self.tum_optimizer.optimize_trajectory(
-                    reftrack,
-                    opt_type='mincurv'
-                )
-                
-                if trajectory is not None:
-                    self.optimized_trajectory = trajectory
-                    # Calculate some statistics
-                    path_length = sum(
-                        np.hypot(trajectory[i+1, 0] - trajectory[i, 0],
-                                trajectory[i+1, 1] - trajectory[i, 1])
-                        for i in range(len(trajectory) - 1)
-                    )
-                    max_curvature = np.max(np.abs(trajectory[:, 3]))
-                    avg_velocity = np.mean(trajectory[:, 4])
-                    
-                    self.get_logger().info(
-                        f'🏁 TUM optimization SUCCESS:\n'
-                        f'  - Waypoints: {len(trajectory)}\n'
-                        f'  - Path length: {path_length:.2f}m\n'
-                        f'  - Max curvature: {max_curvature:.4f} rad/m\n'
-                        f'  - Avg velocity: {avg_velocity:.2f} m/s'
-                    )
-                else:
-                    self.get_logger().warning('❌ TUM optimization returned None, using simple centerline')
-            else:
-                self.get_logger().warning('❌ Failed to create reftrack, using simple centerline')
-                    
-        except Exception as e:
-            self.get_logger().error(f'❌ TUM optimization error: {e}')
-            import traceback
-            self.get_logger().error(f'Traceback: {traceback.format_exc()}')
-            self.optimized_trajectory = None
-    
-    def pose_callback(self, msg):
-        """Update current vehicle pose"""
-        self.current_pose = (
-            msg.pose.position.x,
-            msg.pose.position.y
-        )
-        self.get_logger().debug(f'Pose updated: {self.current_pose}')
-    
     def generate_centerline(self):
-        """
-        Generate centerline from detected cones
-        Implement your centerline generation algorithm here
-        """
-        # Basic implementation: average of left and right cones
-        if not self.left_cones and not self.right_cones:
-            self.centerline = []
-            return
-        
-        # Example: Simple midpoint calculation
-        # You should replace this with your actual algorithm
-        centerline_points = []
-        
-        # If we have both left and right cones, create midpoints
-        if self.left_cones and self.right_cones:
-            # Sort cones by x-coordinate (assuming forward direction)
-            left_sorted = sorted(self.left_cones, key=lambda p: p[0])
-            right_sorted = sorted(self.right_cones, key=lambda p: p[0])
-            
-            # Simple pairing: match cones by x-coordinate
-            for left_cone in left_sorted:
-                # Find closest right cone
-                closest_right = min(right_sorted, 
-                                  key=lambda r: abs(r[0] - left_cone[0]))
-                
-                # Calculate midpoint
-                mid_x = (left_cone[0] + closest_right[0]) / 2
-                mid_y = (left_cone[1] + closest_right[1]) / 2
-                centerline_points.append((mid_x, mid_y))
-        
-        # If we only have one side, offset from that side
-        elif self.left_cones:
-            # Assume track width and offset right
-            centerline_points = [(x + 1.5, y) for x, y in self.left_cones]
-        elif self.right_cones:
-            # Assume track width and offset left
-            centerline_points = [(x - 1.5, y) for x, y in self.right_cones]
-        
-        self.centerline = centerline_points
-        
-        # Log centerline generation
-        if len(centerline_points) > 0:
-            self.get_logger().debug(f'Generated centerline with {len(centerline_points)} points')
-    
-    def main_loop(self):
-        """
-        Main planning loop - called at 5 Hz
-        Publishes optimized trajectory or simple centerline
-        """
-        # Use TUM optimized trajectory if available, otherwise use simple centerline
-        path_points = []
-        
-        if self.optimized_trajectory is not None and len(self.optimized_trajectory) > 0:
-            # Use TUM optimized trajectory: [x, y, heading, curvature, velocity]
-            path_points = [(pt[0], pt[1]) for pt in self.optimized_trajectory]
-            self.get_logger().debug(f'Using TUM optimized trajectory with {len(path_points)} points')
-        elif self.centerline:
-            # Fallback to simple centerline
-            path_points = self.centerline
-            self.get_logger().debug(f'Using simple centerline with {len(path_points)} points')
-        else:
-            return
-        
-        # Publish the planned path
-        path_msg = Path()
-        path_msg.header.stamp = self.get_clock().now().to_msg()
-        path_msg.header.frame_id = 'map'
-        
-        for point in self.centerline:
-            pose = PoseStamped()
-            pose.header = path_msg.header
-            pose.pose.position.x = point[0]
-            pose.pose.position.y = point[1]
-            pose.pose.position.z = 0.0
-            pose.pose.orientation.w = 1.0  # Neutral orientation
-            path_msg.poses.append(pose)
-        
-        if len(path_msg.poses) > 0:
-            self.path_pub.publish(path_msg)
-            self.get_logger().debug(f'Published path with {len(path_msg.poses)} poses')
+        """Ordered centerline from the car forward, in the map frame."""
+        if self.pose is None:
+            return []
+        x, y, yaw = self.pose
+        hx, hy = math.cos(yaw), math.sin(yaw)
 
-    
-    def get_all_obstacles(self, cone_radius: float = 0.3) -> List[Tuple[float, float, float]]:
-        """
-        Get all cones as obstacles for RRT* or other planning algorithms
-        Returns list of (x, y, radius) tuples
-        """
-        obstacles = []
-        
-        for x, y in self.left_cones:
-            obstacles.append((x, y, cone_radius))
-        
-        for x, y in self.right_cones:
-            obstacles.append((x, y, cone_radius))
-        
-        for x, y in self.orange_cones:
-            obstacles.append((x, y, cone_radius))
-        
-        return obstacles
+        def usable(cones):
+            out = []
+            for cx, cy in cones:
+                dx, dy = cx - x, cy - y
+                if math.hypot(dx, dy) > MAX_CONE_RANGE:
+                    continue
+                if dx * hx + dy * hy < -BEHIND_TOLERANCE:
+                    continue
+                out.append((cx, cy))
+            return out
+
+        left = usable(self.left_cones)
+        right = usable(self.right_cones)
+
+        if left and right:
+            # Chain the better-populated side, pair each cone with the
+            # nearest opposite cone: chain order => centerline order.
+            primary, secondary = (left, right) if len(left) >= len(right) else (right, left)
+            chain = chain_from(primary, (x, y), yaw)
+            mids = []
+            for px, py in chain:
+                qx, qy = min(secondary,
+                             key=lambda c: (c[0] - px) ** 2 + (c[1] - py) ** 2)
+                if math.hypot(qx - px, qy - py) <= MAX_PAIR_DIST:
+                    mids.append(((px + qx) / 2.0, (py + qy) / 2.0))
+            if mids:
+                return mids
+            # fall through to single-side handling if pairing failed
+        side = left or right
+        if not side:
+            return []
+        # One boundary only: offset perpendicular to the chain, towards the
+        # track centre (right of blue/left boundary, left of yellow).
+        sign = -1.0 if side is left else 1.0
+        chain = chain_from(side, (x, y), yaw)
+        if len(chain) < 2:
+            return []
+        mids = []
+        for i, (px, py) in enumerate(chain):
+            j = min(i + 1, len(chain) - 1)
+            k = max(i - 1, 0)
+            tx, ty = chain[j][0] - chain[k][0], chain[j][1] - chain[k][1]
+            norm = math.hypot(tx, ty)
+            if norm < 1e-6:
+                continue
+            # left normal is (-ty, tx); sign flips it to the right for blue
+            mids.append((px + sign * (-ty / norm) * HALF_TRACK_WIDTH,
+                         py + sign * (tx / norm) * HALF_TRACK_WIDTH))
+        return mids
+
+    def optimize_trajectory_tum(self):
+        """Optional racing-line refinement of the current centerline."""
+        try:
+            reftrack = self.tum_optimizer.cones_to_reftrack(
+                self.left_cones, self.right_cones, min_points=5)
+            if reftrack is None:
+                return None
+            return self.tum_optimizer.optimize_trajectory(reftrack, opt_type='mincurv')
+        except Exception as e:  # noqa: BLE001 - optimizer failures must not kill planning
+            self.get_logger().warning(f'TUM optimization failed: {e}')
+            return None
+
+    def main_loop(self):
+        if self.pose is None:
+            return
+        self.centerline = self.generate_centerline()
+        # a single midpoint is as likely to be a cross-track mispair as a real
+        # target — never publish it, the follower treats a quiet planner safely
+        if len(self.centerline) < 2:
+            return
+
+        path_points = self.centerline
+        if (self.tum_optimizer is not None
+                and len(self.left_cones) >= 5 and len(self.right_cones) >= 5):
+            trajectory = self.optimize_trajectory_tum()
+            if trajectory is not None and len(trajectory) > 1:
+                path_points = [(float(p[0]), float(p[1])) for p in trajectory]
+
+        msg = Path()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'map'
+        for px, py in path_points:
+            pose = PoseStamped()
+            pose.header = msg.header
+            pose.pose.position.x = float(px)
+            pose.pose.position.y = float(py)
+            pose.pose.orientation.w = 1.0
+            msg.poses.append(pose)
+        self.path_pub.publish(msg)
+
+        self.plan_count += 1
+        if self.plan_count % 25 == 1:  # every ~5 s
+            self.get_logger().info(
+                f'plan #{self.plan_count}: {len(self.left_cones)} blue / '
+                f'{len(self.right_cones)} yellow cones -> '
+                f'{len(path_points)} path points')
+
 
 def main(args=None):
     rclpy.init(args=args)
     node = PathPlannerNode()
-    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('Shutting down Path Planner Node')
+        pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
+
 
 if __name__ == '__main__':
     main()

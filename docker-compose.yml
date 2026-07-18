@@ -41,13 +41,8 @@ services:
     entrypoint: ["/entrypoint.sh"]
     command: >
       bash -c "
-<<<<<<< HEAD
       echo 'Perception ready. Start nodes manually or run: ros2 run cone_detector YOLO_cone_detector' &&
       tail -f /dev/null
-=======
-      echo '👁️ Starting YOLO cone detector...' &&
-      ros2 run cone_detector cone_detector_node
->>>>>>> path-planning-development
       "
 
   # Path planning
@@ -116,12 +111,12 @@ services:
       - racing_network
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-<<<<<<< HEAD
       - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
       - ./Control:/workspace/Control:rw
-=======
       - ./config/racing_visualization.rviz:/workspace/racing.rviz:ro
->>>>>>> path-planning-development
+      # keep the container's startup script in sync with the repo (the baked-in
+      # copy predates the headless simulation launch)
+      - ./docker/entrypoint_eufs_sim.sh:/entrypoint.sh:ro
     stdin_open: true
     tty: true
 

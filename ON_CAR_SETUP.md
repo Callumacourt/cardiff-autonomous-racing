@@ -159,3 +159,40 @@ Offline sanity check (no ROS needed, prints PASS/FAIL):
 ```bash
 python3 ~/cardiff-autonomous-racing/scripts/skidpad_driver.py --selftest
 ```
+
+## 11. FULL AUTONOMOUS LAP — perception + planning + follower (added 2026-07-18)
+
+The pipeline that lapped the EUFS sim, adapted for the car. It uses the ZED
+camera end-to-end: ZED → GPU YOLO → cone_mapper + landmark_slam → path
+planner (`/planned_path`) → pure-pursuit follower (`/cmd` to ros_can).
+
+Before the day (offline, ~1 min):
+
+```bash
+~/cardiff-autonomous-racing/scripts/check_car_deps.sh
+```
+
+Every check must PASS. It verifies ROS, the NVIDIA driver, a real GPU
+kernel run through torch (catches the wrong-CUDA-wheel problem), ultralytics,
+numpy 1.x (2.x breaks cv_bridge), YOLO weights, ZED SDK + wrapper, the
+perception/Control workspaces, and that the planner + follower import cleanly.
+
+On the day:
+
+```bash
+~/cardiff-autonomous-racing/scripts/run_full_autonomous_lap_car.sh [laps] [speed_mps]
+```
+
+It re-runs the dependency check, stops any running `command_node`
+(it publishes zero-commands on `/cmd` and would fight the follower),
+starts ros_can if needed, brings up camera + perception via
+`setup_real_car.sh`, starts the planner, waits for `/planned_path`, then
+arms the follower in `--real-car` mode: **it never calls set_mission — select
+the mission on the AMI panel**; the car drives when ros_can reports
+AS:DRIVING. EBS/RES stops the car as normal; the follower also brakes itself
+if SLAM goes quiet >0.5 s or the planner >2 s, and stops after [laps].
+
+`scripts/run_full_autonomous_lap_car.sh stop` tears down follower, planner
+and perception (leaves ros_can running).
+
+First run: 2.0 m/s, one lap, walk the fallbacks like the skidpad procedure.

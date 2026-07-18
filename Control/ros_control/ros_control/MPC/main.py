@@ -31,7 +31,6 @@ class Model_Predictive_Control():
 
         # calculate each state on the path (model stores its own state after each calculation)
         for i in range(1,len(inputs)):
-        for i in range(1,len(inputs)):
             self.dynamics_model.calculate_next_state(input=inputs[i])
             states.append(self.dynamics_model.get_state())
 
@@ -39,7 +38,7 @@ class Model_Predictive_Control():
 
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped,last:bool) -> float:
         """cost = 0
-        """cost = 0
+        cost = 0
         pose = pose_stamped.pose
         
         if state.directional_velocity == 0:
@@ -61,20 +60,7 @@ class Model_Predictive_Control():
         cost += 1000 * state.perpendicualar_velocity
 
         #penalize super sharp steering
-        cost += 5 * state.yaw_rate
-        """
-        cost = 0
-        if state.directional_velocity < 0:
-            cost += 1000 + abs(state.directional_velocity) * 100
-        else:
-            cost += abs(2.75 - state.directional_velocity)
-        
-        cost += abs(state.yaw_angle)*100 + abs(state.yaw_rate)*10
-
-        if last:
-            cost += abs(state.directional_velocity)*10
-
-        """       
+        cost += 5 * state.yaw_rate 
         """
         cost = 0
         if state.directional_velocity < 0:
@@ -118,7 +104,6 @@ class Model_Predictive_Control():
 
         return total_cost
 
-    def main(self,initial_state:Vehicle_State,required_path:Path,inputs=None) -> list[Vehicle_Input]:
     def main(self,initial_state:Vehicle_State,required_path:Path,inputs=None) -> list[Vehicle_Input]:
         """This function is the main model predictive control loop.
         It should minimize the cost of the path by creating a set of inputs to 
@@ -199,7 +184,6 @@ class Model_Predictive_Control():
             print(res.message)
             #best_inputs = [Vehicle_Input(0,0) for x in range(self.horizon)]
         self.previous_inputs = best_inputs
-        return best_inputs  # Return the first input to apply now
         return best_inputs  # Return the first input to apply now
     
 if __name__ == "__main__":

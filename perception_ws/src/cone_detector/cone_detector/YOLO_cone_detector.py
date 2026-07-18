@@ -212,8 +212,15 @@ class YOLOConeDetector3D(Node):
         cv2.line(rgb_image, (0, mask_line_y),
                  (rgb_image.shape[1], mask_line_y), (255, 0, 0), 2)
         try:
-            annotated = self.bridge.cv2_to_imgmsg(rgb_image, encoding='bgr8')
+            # built by hand: cv_bridge's cv2_to_imgmsg hits a KeyError on some
+            # cv_bridge/OpenCV version combinations (its CV_8UC3 lookup)
+            annotated = Image()
             annotated.header = rgb_msg.header
+            annotated.height, annotated.width = rgb_image.shape[:2]
+            annotated.encoding = 'bgr8'
+            annotated.is_bigendian = 0
+            annotated.step = annotated.width * 3
+            annotated.data = np.ascontiguousarray(rgb_image).tobytes()
             self.image_pub.publish(annotated)
         except Exception as e:
             self.get_logger().error(f'Failed to publish annotated image: {e}')

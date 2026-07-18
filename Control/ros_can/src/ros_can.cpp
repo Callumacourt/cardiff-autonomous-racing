@@ -62,7 +62,7 @@ void CanInterface::loop() {
   fs_ai_api_imu_get_data(&imu_data_);
 
   // Log new data (in one string so log messages don't get separated)
-  std::string msg_recv =
+  /*std::string msg_recv =
       "--- Read CAN data ---\n"
       "AS STATE:    " + std::to_string(vcu2ai_data_.VCU2AI_AS_STATE) + "\n" +
       "AMI STATE:   " + std::to_string(vcu2ai_data_.VCU2AI_AMI_STATE) + "\n" +
@@ -75,7 +75,7 @@ void CanInterface::loop() {
       "FR RPM:      " + std::to_string(vcu2ai_data_.VCU2AI_FR_WHEEL_SPEED_rpm) + "\n" +
       "FL RPM:      " + std::to_string(vcu2ai_data_.VCU2AI_FL_WHEEL_SPEED_rpm) + "\n" +
       "STEER ANGLE: " + std::to_string(vcu2ai_data_.VCU2AI_STEER_ANGLE_deg) + "\n";
-  RCLCPP_DEBUG(get_logger(), "%s", msg_recv.c_str());
+  //RCLCPP_DEBUG(get_logger(), "%s", msg_recv.c_str());*/
 
   // Update AS state
   as_state_ = vcu2ai_data_.VCU2AI_AS_STATE;
@@ -115,7 +115,7 @@ void CanInterface::loop() {
   ai2vcu_data_.AI2VCU_MISSION_STATUS = CanInterface::getMissionStatus(vcu2ai_data_);
 
   // Log sent data (in one string so log messages don't get separated)
-  std::string msg_send =
+  /*std::string msg_send =
       "--- Sending CAN data ---\n"
       "EBS:            " + std::to_string(ai2vcu_data_.AI2VCU_ESTOP_REQUEST) + "\n" +
       "Brake pct:      " + std::to_string(ai2vcu_data_.AI2VCU_BRAKE_PRESS_REQUEST_pct) + "\n" +
@@ -124,7 +124,7 @@ void CanInterface::loop() {
       "Axle rpm:       " + std::to_string(ai2vcu_data_.AI2VCU_AXLE_SPEED_REQUEST_rpm) + "\n" +
       "Direction req:  " + std::to_string(ai2vcu_data_.AI2VCU_DIRECTION_REQUEST) + "\n" +
       "Mission status: " + std::to_string(ai2vcu_data_.AI2VCU_MISSION_STATUS) + "\n";
-  RCLCPP_DEBUG(get_logger(), "%s", msg_send.c_str());
+  //RCLCPP_DEBUG(get_logger(), "%s", msg_send.c_str());*/
 
   // Send data to car
   fs_ai_api_ai2vcu_set_data(&ai2vcu_data_);
@@ -479,11 +479,11 @@ float CanInterface::checkAndTrunc(const float val, const float max_val, const st
                                   bool trunc_at_zero) {
   float min_val = trunc_at_zero ? 0 : -max_val;
   if (val > max_val) {
-    RCLCPP_DEBUG(get_logger(), "%s was %f but max is %f", type.c_str(), val, max_val);
+    //RCLCPP_DEBUG(get_logger(), "%s was %f but max is %f", type.c_str(), val, max_val);
     return max_val;
   } else {
     if (val < min_val) {
-      RCLCPP_DEBUG(get_logger(), "%s was %f but min is %f", type.c_str(), val, min_val);
+      //RCLCPP_DEBUG(get_logger(), "%s was %f but min is %f", type.c_str(), val, min_val);
       return min_val;
     }
   }
@@ -495,11 +495,11 @@ int CanInterface::checkAndTrunc(const int val, const int max_val, std::string ty
   // Replicated because casting to float from int could lose information
   int min_val = trunc_at_zero ? 0 : -max_val;
   if (val > max_val) {
-    RCLCPP_DEBUG(get_logger(), "%s was %i but max is %i", type.c_str(), val, max_val);
+    //RCLCPP_DEBUG(get_logger(), "%s was %i but max is %i", type.c_str(), val, max_val);
     return max_val;
   } else {
     if (val < min_val) {
-      RCLCPP_DEBUG(get_logger(), "%s was %i but min is %i", type.c_str(), val, min_val);
+      //RCLCPP_DEBUG(get_logger(), "%s was %i but min is %i", type.c_str(), val, min_val);
       return min_val;
     }
   }
