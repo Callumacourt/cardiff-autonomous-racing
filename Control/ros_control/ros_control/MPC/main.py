@@ -31,6 +31,7 @@ class Model_Predictive_Control():
 
         # calculate each state on the path (model stores its own state after each calculation)
         for i in range(1,len(inputs)):
+        for i in range(1,len(inputs)):
             self.dynamics_model.calculate_next_state(input=inputs[i])
             states.append(self.dynamics_model.get_state())
 
@@ -38,7 +39,12 @@ class Model_Predictive_Control():
 
     def stage_cost(self, state:Vehicle_State,input:Vehicle_Input,pose_stamped:PoseStamped,last:bool) -> float:
         """cost = 0
+        """cost = 0
         pose = pose_stamped.pose
+        
+        if state.directional_velocity == 0:
+            state.directional_velocity = 0.001
+        
         
         if state.directional_velocity == 0:
             state.directional_velocity = 0.001
@@ -56,6 +62,19 @@ class Model_Predictive_Control():
 
         #penalize super sharp steering
         cost += 5 * state.yaw_rate
+        """
+        cost = 0
+        if state.directional_velocity < 0:
+            cost += 1000 + abs(state.directional_velocity) * 100
+        else:
+            cost += abs(2.75 - state.directional_velocity)
+        
+        cost += abs(state.yaw_angle)*100 + abs(state.yaw_rate)*10
+
+        if last:
+            cost += abs(state.directional_velocity)*10
+
+        """       
         """
         cost = 0
         if state.directional_velocity < 0:
@@ -94,9 +113,12 @@ class Model_Predictive_Control():
         total_cost = 0
         for i in range(0,len(inputs)):
             total_cost += self.stage_cost(state=states[i],input=inputs[i],pose_stamped=required_path.poses[i],last=True if i+1 == self.horizon else False)
+        for i in range(0,len(inputs)):
+            total_cost += self.stage_cost(state=states[i],input=inputs[i],pose_stamped=required_path.poses[i],last=True if i+1 == self.horizon else False)
 
         return total_cost
 
+    def main(self,initial_state:Vehicle_State,required_path:Path,inputs=None) -> list[Vehicle_Input]:
     def main(self,initial_state:Vehicle_State,required_path:Path,inputs=None) -> list[Vehicle_Input]:
         """This function is the main model predictive control loop.
         It should minimize the cost of the path by creating a set of inputs to 
@@ -113,7 +135,9 @@ class Model_Predictive_Control():
             inputs = self.previous_inputs
         if required_path == None: # if no path, dont do anything
             return [Vehicle_Input(acceleration=0.0,steering_angle=0.0)]
+            return [Vehicle_Input(acceleration=0.0,steering_angle=0.0)]
         
+        self.horizon = len(required_path.poses)
         self.horizon = len(required_path.poses)
 
         """# Initial guess: flatten list of Vehicle_Input into [a0, s0, a1, s1, ...]
@@ -156,6 +180,9 @@ class Model_Predictive_Control():
         #res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead', options={'maxiter': 100, 'disp': True})
         res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead')
         
+        #res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead', options={'maxiter': 100, 'disp': True})
+        res = minimize(objective, u0, bounds=bounds, method='Nelder-Mead')
+        
         best_inputs = unpack_inputs(res.x)
         
         if res.success: 
@@ -164,7 +191,15 @@ class Model_Predictive_Control():
             print("MPC Unsuccessful")
             print(res.message)
             #best_inputs = [Vehicle_Input(0,0) for x in range(self.horizon)]
+        
+        if res.success: 
+            print("MPC Success")
+        else:
+            print("MPC Unsuccessful")
+            print(res.message)
+            #best_inputs = [Vehicle_Input(0,0) for x in range(self.horizon)]
         self.previous_inputs = best_inputs
+        return best_inputs  # Return the first input to apply now
         return best_inputs  # Return the first input to apply now
     
 if __name__ == "__main__":
