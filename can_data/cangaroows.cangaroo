@@ -1,0 +1,21 @@
+<cangaroo-workspace cangaroo-version="0.6.3" workspace-version="1">
+ <tabs>
+  <tab title="Trace" dockstate="AAAA/wAAAAD9AAAAAQAAAAMAAAT8AAABNPwBAAAAAvwAAAAAAAAB0AAAAVQA////+gAAAAABAAAAAvsAAAAWAGQAbwBjAGsAXwBzAHQAYQB0AHUAcwEAAAAA/////wAAAEYA////+wAAABAAZABvAGMAawBfAGwAbwBnAQAAAAD/////AAABVAD////8AAAB1gAAAyYAAAMmAP////oAAAAAAQAAAAT7AAAAHABkAG8AYwBrAF8AZwBlAG4AZQByAGEAdABvAHIBAAAAAP////8AAAMgAP////sAAAAUAGQAbwBjAGsAXwBnAHIAYQBwAGgBAAAAAP////8AAAMmAP////sAAAAWAGQAbwBjAGsAXwBzAGMAcgBpAHAAdAEAAAAA/////wAAAeUA////+wAAABYAZABvAGMAawBfAHIAZQBwAGwAYQB5AQAAAAD/////AAAB9AD///8AAAT8AAAA7wAAAAQAAAAEAAAACAAAAAj8AAAAAA==" ActiveTab="0" type="TraceWindow" mode="aggregated" TimestampMode="2" modeUds="unified" modeJ1939="aggregated">
+   <AggregatedTraceView SortColumn="-1"/>
+   <TraceFilter showRx="1" showTx="1"/>
+   <txgeneratorwindow splitterState="AAAA/wAAAAEAAAACAAACJAAAAbMB/////wEAAAABAA==" type="TxGeneratorWindow"/>
+   <scriptwindow file="" autorun="0"/>
+   <graphwindow duration="1" viewType="0" type="GraphWindow" tabWidgetWidth="653"/>
+  </tab>
+ </tabs>
+ <setup>
+  <network name="Network 1">
+   <interfaces>
+    <interface lin-schedule-table="" bitrate="500000" lin-ldf-path="" driver="SocketCAN" listen-only="0" bitrate-fd="2000000" is-custom-fdbitrate="0" is-custom-bitrate="0" lin-jitter-us="0" enabled="1" can-fd="0" lin-listen-only="0" lin-slave-node="" lin-wakeup-on-bus="0" lin-checksum-classic="0" lin-protocol="4" bus-type="can" sample-point="875" configure="0" lin-node-mode="1" name="can0" type="can" one-shot="0" lin-timebase-ms="5" lin-baudrate="19200" sample-point-fd="875" triple-sampling="0" auto-restart-time="100" custom-fdbitrate="70920" auto-restart="0" custom-bitrate="144391"/>
+   </interfaces>
+   <databases>
+    <database filename="/home/thomas/Documents/github_repos/cardiff-autonomous-racing/Control/ros_can/FS-AI-API/Docs/ADSDV_2021_VCU_AI_interface_v2.dbc" db-type="dbc" type="dbc"/>
+   </databases>
+  </network>
+ </setup>
+</cangaroo-workspace>
